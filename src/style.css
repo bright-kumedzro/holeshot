@@ -326,6 +326,11 @@ svg { display: block; }
 .ch-row strong { display: block; font-family: var(--font-display); font-weight: 400; font-size: 19px; }
 .ch-row small { display: block; font-weight: 700; font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
 .ch-row svg { width: 20px; height: 20px; flex: none; color: var(--ink-soft); }
+.ch-row em { margin-left: 8px; padding: 1px 7px; border-radius: 99px; background: var(--pink); color: var(--paper); font-family: var(--font-body); font-style: normal; font-weight: 900; font-size: 11px; vertical-align: 3px; }
+.ch-row.fresh { box-shadow: 0 0 0 3px var(--pink), 0 4px 0 var(--pink-deep); }
+.ch-status { margin: -6px 0 0; font-weight: 800; font-size: 15px; opacity: 0.9; }
+.board li.playing { opacity: 0.85; }
+.board li.playing b { color: var(--ink-soft); }
 .ch-msg { margin: 24px 0 0; font-weight: 800; font-size: 17px; text-align: center; }
 .ch-head { margin: -6px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1.05; text-shadow: 0 3px 0 rgba(0,0,0,0.2); }
 .board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

@@ -26,7 +26,7 @@ export const ICONS = {
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-const ordinal = n => n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th');
+export const ordinal = n => n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th');
 const SCREENS = ['scrTitle', 'scrLevels', 'scrShop', 'scrSettings', 'scrCompete', 'scrChallenge'];
 const MODALS = ['mdlPause', 'mdlResult', 'mdlRun'];
 let H = {};
@@ -103,6 +103,7 @@ function renderTitle() {
   if (save.endlessBest) bits.push(`Endless best ${save.endlessBest}`);
   if (save.daily.streak > 1) bits.push(`${save.daily.streak}-day streak`);
   $('statLine').textContent = bits.join(' · ');
+  H.titleShown();
 }
 
 function renderLevels() {
@@ -163,7 +164,7 @@ export function renderShop() {
 }
 
 const TOGGLES = [
-  { key: 'sound', label: 'Sound effects' },
+  { key: 'sound', label: 'Sound', desc: 'All game audio, music included' },
   { key: 'haptics', label: 'Vibration', desc: navigator.vibrate ? 'On phones that support it' : 'This browser can’t vibrate' },
   { key: 'preview', label: 'Bounce preview', desc: 'Show where the ball will bounce off walls' },
   { key: 'fps', label: 'Show frame rate', desc: 'A small counter in the corner' },
@@ -218,10 +219,10 @@ export function renderCompete(stats, list) {
   }
   const el = $('cmpList');
   el.innerHTML = list.length ? '' : '<p class="fine">No challenges yet. Start one and send it to a friend.</p>';
-  for (const { id, title, status } of list) {
+  for (const { id, title, others, you, fresh } of list) {
     const b = document.createElement('button');
-    b.className = 'ch-row';
-    b.innerHTML = `<span><strong>${esc(title)}</strong><small>${esc(status)}</small></span>${ICONS.chevron}`;
+    b.className = 'ch-row' + (fresh ? ' fresh' : '');
+    b.innerHTML = `<span><strong>${esc(title)}${fresh ? '<em>New</em>' : ''}</strong>${others ? `<small>${esc(others)}</small>` : ''}<small>${esc(you)}</small></span>${ICONS.chevron}`;
     b.onclick = () => H.openChallenge(id);
     el.appendChild(b);
   }
@@ -237,31 +238,45 @@ export function renderChallenge(s) {
     return;
   }
   const v = s.view, rec = s.local, me = v.players.findIndex(p => p.you), n = v.players.length;
+  const others = [...v.players, ...v.playing].filter(p => !p.you), done = v.players.filter(p => !p.you).length;
+  const inviting = v.mine && me < 0; // the creator before finishing: sending the invite comes first
   const head = me >= 0 ? (n > 1 ? `You’re ${ordinal(me + 1)} of ${n}` : 'You’re on the board')
+    : inviting && !others.length ? 'Invite your friends'
     : n ? `Score to beat: ${v.players[0].shots}` : 'Be the first to finish';
+  const status = others.length ? `${others.length} accepted · ${done} finished` : 'Nobody has accepted yet';
   const rows = v.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="rank">${i + 1}</span>`
-    + `<span class="who">${esc(p.name)}${p.you ? '<em>you</em>' : ''}<small>${p.holes.join(' · ')}</small></span><b>${p.shots}</b></li>`).join('');
-  let actions = '';
+    + `<span class="who">${esc(p.name)}${p.you ? '<em>you</em>' : ''}<small>${p.holes.join(' · ')}</small></span><b>${p.shots}</b></li>`).join('')
+    + v.playing.map(p => `<li class="playing${p.you ? ' you' : ''}"><span class="rank">·</span>`
+    + `<span class="who">${esc(p.name)}${p.you ? '<em>you</em>' : ''}<small>Accepted · still playing</small></span><b>–</b></li>`).join('');
+  const share = `<button class="btn" id="chShare" data-icon="share"><span>${me >= 0 ? 'Send to a friend' : 'Send invite'}</span></button><p class="ch-link">${esc(s.link)}</p>`;
+  let actions;
   if (me >= 0) {
-    actions = `<button class="btn" id="chShare" data-icon="share"><span>Send to a friend</span></button>`
-      + `<p class="ch-link">${esc(s.link)}</p>`
-      + (n < 2 ? '<p class="fine">It counts as a game once someone else finishes it.</p>' : '')
+    actions = share + (n < 2 ? '<p class="fine">It counts as a game once someone else finishes it.</p>' : '')
       + '<button class="btn white" id="chNew">New challenge</button>';
   } else if (!s.playable) {
     actions = '<p class="fine">This challenge was made on an older version of Holeshot, so its holes can’t be rebuilt. Start a new one!</p><button class="btn" id="chNew">New challenge</button>';
   } else {
     const label = rec?.sent === false && rec.holes.length >= v.holes ? `Send my score (${rec.holes.reduce((a, b) => a + b, 0)} shots)`
-      : rec?.holes.length ? `Continue: hole ${rec.holes.length + 1} of ${v.holes}` : `Play the ${v.holes} holes`;
-    actions = (save.player.name ? '' : `<label class="name-field"><span>Your name</span><input id="chName" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Shown on the scoreboard"></label>`)
-      + `<button class="btn big" id="chPlay">${label}</button>`;
+      : rec?.holes.length || rec?.tries ? `Continue: hole ${rec.holes.length + 1} of ${v.holes}` : `Play ${inviting ? 'your' : 'the'} ${v.holes} holes`;
+    const play = (save.player.name ? '' : `<label class="name-field"><span>Your name</span><input id="chName" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Shown on the scoreboard"></label>`)
+      + `<button class="btn ${inviting ? 'white' : 'big'}" id="chPlay">${label}</button>`;
+    actions = inviting ? share + play : play;
   }
   body.innerHTML = `<p class="eyebrow">${v.mine ? 'Your challenge' : `${esc(v.by)}’s challenge`} · ${v.holes} holes</p><h3 class="ch-head">${head}</h3>`
-    + (n ? `<ol class="board">${rows}</ol>` : '<p class="fine">Nobody has finished yet.</p>') + `<div class="ch-actions">${actions}</div>`;
+    + `<p class="ch-status">${status}</p>`
+    + (n || v.playing.length ? `<ol class="board">${rows}</ol>` : '') + `<div class="ch-actions">${actions}</div>`;
   body.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', ICONS[el.dataset.icon]));
   if ($('chName')) $('chName').oninput = e => H.setName(e.target.value);
   if ($('chPlay')) $('chPlay').onclick = () => H.playChallenge(v);
   if ($('chShare')) $('chShare').onclick = () => H.shareChallenge(v);
   if ($('chNew')) $('chNew').onclick = () => H.newChallenge();
+}
+
+export function competeBadge(n) {
+  const b = $('competeBadge');
+  b.hidden = !n;
+  b.textContent = n;
+  b.setAttribute('aria-label', `${n} challenge${n === 1 ? '' : 's'} with news`);
 }
 
 // A native select: on phones it opens the system picker, which beats any custom list for thumbs.
@@ -282,7 +297,7 @@ function renderPauseQuick() {
   q.innerHTML = '';
   const b = document.createElement('button');
   b.className = 'icon-btn'; b.innerHTML = ICONS.sound;
-  b.setAttribute('aria-label', 'Sound effects'); b.setAttribute('aria-pressed', String(!!save.settings.sound));
+  b.setAttribute('aria-label', 'Sound (all game audio, music included)'); b.setAttribute('aria-pressed', String(!!save.settings.sound));
   b.onclick = () => { save.settings.sound = !save.settings.sound; persist(); H.settingsChanged(); renderPauseQuick(); };
   q.append(b, musicPicker());
   if (H.musicChoice() === 'youtube') q.appendChild(youtubeField());

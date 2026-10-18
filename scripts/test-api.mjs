@@ -38,6 +38,20 @@ ok(stats.played === 1 && stats.wins === 1, 'the leader has 1 win from 1 game');
 stats = (await call('GET', `?stats=${A}`)).data;
 ok(stats.played === 1 && stats.wins === 0 && stats.waiting === 0, 'the creator has 0 wins from 1 game');
 
+// accepting: a fourth player joins, shows as playing until they finish, and the creator's list sees it
+const D = 'dddddddddddddddddddd';
+r = await call('POST', '', { action: 'join', id, name: 'Yaw', p: D });
+ok(r.status === 200 && r.data.playing.length === 1 && r.data.playing[0].name === 'Yaw' && r.data.playing[0].you, 'joining lists you as playing');
+await call('POST', '', { action: 'join', id, name: 'Yaw', p: D });
+ok((await call('GET', `?id=${id}&p=${A}`)).data.playing.length === 1, 'joining twice counts once');
+await call('POST', '', { action: 'join', id, name: 'Kofi', p: B });
+ok((await call('GET', `?id=${id}&p=${A}`)).data.playing.length === 1, 'someone who already finished is not listed as playing');
+let sum = (await call('GET', `?ids=${id},nope99,../x&p=${A}`)).data;
+ok(sum.length === 2 && sum[0].mine && sum[0].joined.join() === 'Kofi,Esi,Yaw' && sum[0].done === 2 && sum[0].rank === 3 && sum[1].gone, 'summaries list who joined, who finished and your rank');
+await call('POST', '', { action: 'score', id, name: 'Yaw', p: D, holes: [3, 3, 3, 3, 3] });
+r = await call('GET', `?id=${id}&p=${A}`);
+ok(r.data.playing.length === 0 && r.data.players.length === 4, 'finishing moves a player from playing to the board');
+
 ok((await call('GET', '?id=nope99&p=' + A)).status === 404, 'unknown challenge is a 404');
 ok((await call('POST', '', { action: 'zap' })).status === 400, 'unknown action is a 400');
 

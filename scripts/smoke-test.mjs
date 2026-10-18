@@ -119,10 +119,10 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
     page.on('pageerror', e => errors.push(`[compete] ${e.message}`));
   };
 
-  // creator: name, then New challenge drops straight into hole 1
+  // creator: name, New challenge opens the invite first, then they play all 5 holes (sunk through the test hook)
   const ctxA = await browser.createBrowserContext(), a = await ctxA.newPage(); hooks(a);
   await a.setViewport({ width: 390, height: 844, isMobile: true });
-  await a.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
+  await a.goto('http://localhost:4789/#autotest', { waitUntil: 'networkidle0' });
   await shot(a, 'compete-1-title');
   await a.click('#btnCompete'); await wait(500);
   await a.click('#btnNewChallenge'); await wait(300);
@@ -131,12 +131,39 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   await shot(a, 'compete-2-screen');
   await a.click('#btnNewChallenge');
   // software rendering in headless Chrome leaves little time for the hole checks, so allow a while
-  await a.waitForFunction(() => document.getElementById('hudLabel').textContent === 'Your challenge', { timeout: 60000 }).catch(() => {});
-  await wait(1200);
+  await a.waitForFunction(() => document.getElementById('chShare'), { timeout: 60000 }).catch(() => {});
+  const invite0 = { head: await text(a, '.ch-head'), status: await text(a, '.ch-status'), play: await text(a, '#chPlay') };
+  await shot(a, 'compete-3-invite');
+  await a.click('#chPlay');
+  await a.waitForFunction(() => document.getElementById('hudLabel').textContent === 'Your challenge', { timeout: 20000 }).catch(() => {});
   const hud = await text(a, '#hudLabel');
-  await shot(a, 'compete-3-hole');
-  console.log('compete create', JSON.stringify({ blockedWithoutName: blocked, hud }));
-  if (!blocked || hud !== 'Your challenge') errors.push('[compete] creating a challenge did not start hole 1');
+  await shot(a, 'compete-3b-hole');
+  for (let hole = 1; hole <= 5; hole++) {
+    await a.waitForFunction(() => window.__holeshot.sink(), { timeout: 20000, polling: 200 }).catch(() => errors.push(`[compete] hole ${hole} never became playable`));
+    await wait(300);
+  }
+  await a.waitForFunction(() => document.querySelector('#scrChallenge:not([hidden]) .board'), { timeout: 20000 }).catch(() => {});
+  const finished = { head: await text(a, '.ch-head').catch(() => null), rows: await a.$$eval('.board li', ls => ls.length) };
+  await shot(a, 'compete-3c-finished');
+  console.log('compete create', JSON.stringify({ blockedWithoutName: blocked, invite0, hud, finished }));
+  if (!blocked || invite0.head !== 'Invite your friends' || !invite0.play.includes('Play your 5 holes')) errors.push('[compete] a new challenge did not open on its invite');
+  if (hud !== 'Your challenge') errors.push('[compete] Play did not start hole 1');
+  if (finished.head !== 'You’re on the board' || finished.rows !== 1) errors.push(`[compete] finishing 5 holes did not post the score: ${JSON.stringify(finished)}`);
+
+  // someone accepts Ama's challenge: her title screen shows a badge and her list marks it
+  const aId = await a.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('holeshot.save.v1')).challenges)[0]);
+  await fetch('http://localhost:4789/api/challenge', { method: 'POST', body: JSON.stringify({ action: 'join', id: aId, name: 'Esi', p: 'z'.repeat(20) }) });
+  await a.evaluate(() => { document.getElementById('btnChBack').click(); });
+  await wait(300);
+  await a.evaluate(() => document.querySelector('#scrCompete [data-back]').click());
+  await a.waitForFunction(() => !document.getElementById('competeBadge').hidden, { timeout: 10000 }).catch(() => {});
+  const badge = await a.$eval('#competeBadge', b => (b.hidden ? null : b.textContent));
+  await shot(a, 'compete-3d-badge');
+  await a.click('#btnCompete'); await wait(1500);
+  const row = await a.$eval('.ch-row', r => ({ text: r.textContent, fresh: r.classList.contains('fresh') }));
+  await shot(a, 'compete-3e-list');
+  console.log('compete news', JSON.stringify({ badge, row }));
+  if (badge !== '1' || !row.fresh || !row.text.includes('Esi joined · 0 finished')) errors.push('[compete] news of someone accepting did not show');
 
   // a friend's link: made through the API with two scores, opened in a separate browser profile via /c/<id>
   const ch = await api({ action: 'create', name: 'Kofi', p: 'k'.repeat(20), v: 1, seed: 424242, ks: [0, 0, 0, 0, 0] });
@@ -147,6 +174,12 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   await b.goto(`http://localhost:4789/c/${ch.id}`, { waitUntil: 'networkidle0' }); await wait(800);
   const invite = { url: b.url(), head: await text(b, '.ch-head'), play: await text(b, '#chPlay') };
   await shot(b, 'compete-4-invite');
+  // accepting: Yaw types a name and taps Play, and Kofi's scoreboard lists him as playing
+  await b.type('#chName', 'Yaw');
+  await b.click('#chPlay'); await wait(1500);
+  const kofiView = await (await fetch(`http://localhost:4789/api/challenge?id=${ch.id}&p=${'k'.repeat(20)}`)).json();
+  console.log('compete accept', JSON.stringify(kofiView.playing));
+  if (kofiView.playing.map(p => p.name).join() !== 'Yaw') errors.push('[compete] accepting did not show up for the creator');
 
   // B finished all 5 holes on this device earlier but the score never reached the server: opening sends it
   await b.evaluate(id => {
@@ -184,21 +217,29 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   await p.select('#settingsList select', 'youtube'); await wait(300);
   await p.type('.yt-field input', 'https://youtu.be/M7lc1UVf-VE?si=abc'); // YouTube's own IFrame API demo video
   await p.click('.yt-field .btn');
-  await p.waitForFunction(() => document.querySelector('#ytDock:not([hidden]) iframe'), { timeout: 30000 }).catch(() => {});
-  await wait(1500);
-  const yt = await p.evaluate(() => ({ docked: !document.getElementById('ytDock').hidden, iframe: document.querySelector('#ytDock iframe')?.src.split('?')[0] || null }));
+  // one player is made once and then loaded with videos, so ask it what it's playing rather than reading its URL
+  await p.waitForFunction(() => window.YT?.get?.('ytPlayer')?.getVideoUrl?.()?.includes('M7lc1UVf-VE'), { timeout: 30000 }).catch(() => {});
+  const yt = await p.evaluate(() => ({
+    docked: !document.getElementById('ytDock').hidden,
+    host: document.querySelector('#ytDock iframe')?.src.split('/embed')[0] || null,
+    video: window.YT?.get?.('ytPlayer')?.getVideoUrl?.() || null,
+  }));
   await p.screenshot({ path: 'artifact/shots/music-1-settings.png' });
   await p.evaluate(() => { document.querySelector('#scrSettings [data-back]').click(); document.getElementById('btnPlay').click(); });
   await wait(1800);
   await p.screenshot({ path: 'artifact/shots/music-2-hole-dock.png' });
   await p.evaluate(() => document.getElementById('btnPause').click()); await wait(400);
   await p.screenshot({ path: 'artifact/shots/music-3-pause.png' });
+  await p.click('#pauseQuick .icon-btn'); await wait(600); // the speaker: mutes everything, YouTube included
+  const ytMuted = await p.evaluate(() => window.YT?.get?.('ytPlayer')?.isMuted?.() ?? null);
+  await p.click('#pauseQuick .icon-btn'); await wait(300);
+  if (ytMuted !== true) errors.push(`[music] the speaker did not mute YouTube (${ytMuted})`);
   await p.click('#btnYtClose'); await wait(400);
   const closed = await p.evaluate(() => document.getElementById('ytDock').hidden && !document.body.classList.contains('yt-on'));
-  console.log('music', JSON.stringify({ options, streamed, yt, closed }));
+  console.log('music', JSON.stringify({ options, streamed, yt, ytMuted, closed }));
   if (!options.includes('Smoke Test · Holeshot') || !options.includes('YouTube video or playlist')) errors.push('[music] picker is missing choices');
   if (!streamed) errors.push('[music] picking a track did not stream it');
-  if (!yt.docked || !/youtube(-nocookie)?\.com\/embed\/M7lc1UVf-VE/.test(yt.iframe || '')) errors.push(`[music] YouTube did not dock: ${JSON.stringify(yt)}`);
+  if (!yt.docked || yt.host !== 'https://www.youtube-nocookie.com' || !yt.video?.includes('M7lc1UVf-VE')) errors.push(`[music] YouTube did not dock: ${JSON.stringify(yt)}`);
   if (!closed) errors.push('[music] closing the dock did not stop YouTube');
   await p.close();
 }

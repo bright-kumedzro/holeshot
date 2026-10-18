@@ -96,6 +96,7 @@ function fitView() {
 let ytLink = ''; // the link the dock is playing, so re-applying settings doesn't restart it
 function applyMusic() {
   applyAudio();
+  YouTube.setMuted(!save.settings.sound); // the speaker silences everything, YouTube included
   const link = musicChoice() === 'youtube' && YouTube.parse(save.settings.youtube) ? save.settings.youtube : '';
   if (link === ytLink) return;
   ytLink = link;
@@ -369,7 +370,7 @@ function win() {
       save.daily.done[d.key] = stars;
     } else save.daily.done[d.key] = Math.max(save.daily.done[d.key], stars);
     note = `Daily streak: ${save.daily.streak} day${save.daily.streak === 1 ? '' : 's'}`;
-  } else {
+  } else if (d.mode === 'endless') {
     G.run.holes++; G.run.coins += 2 + G.coinsHole; earned += 2;
     if (ace && G.run.balls < ENDLESS_BALLS) { G.run.balls++; UI.toast('Hole in one: +1 ball'); }
   }
@@ -420,27 +421,39 @@ function startEndless() {
 
 // ---------- compete ----------
 let chToken = 0; // bumped on every navigation, so a slow reply can't redraw a screen the player has left
+let chPoll = 0;  // timer that refreshes the open challenge, so its creator sees people accept and finish
+const POLL_MS = 15000;
 const reopen = screen => { if (G.state === 'menu') UI.showScreen(screen); else goMenu(screen); };
 const sum = a => a.reduce((x, y) => x + y, 0);
+const names = n => (n.length === 1 ? n[0] : n.length === 2 ? `${n[0]} and ${n[1]}` : `${n[0]} and ${n.length - 1} others`);
 
-function competeList() {
-  return Compete.recent().map(([id, rec]) => ({
-    id,
-    title: rec.by ? `${rec.by}’s challenge` : 'Your challenge',
-    status: !Compete.finished(rec) ? `In progress: hole ${rec.holes.length + 1} of ${COMPETE_HOLES}`
-      : rec.sent ? `${sum(rec.holes)} shots · see the scores` : 'Finished · score not sent yet',
-  }));
+function competeList(summaries = []) {
+  const byId = Object.fromEntries(summaries.map(s => [s.id, s]));
+  return Compete.recent().map(([id, rec]) => {
+    const s = byId[id];
+    const others = !s || s.gone ? '' : s.joined.length ? `${names(s.joined)} joined · ${s.done} finished` : 'Nobody has joined yet';
+    const you = !Compete.finished(rec) ? (rec.holes.length || rec.tries ? `You’re on hole ${rec.holes.length + 1} of ${COMPETE_HOLES}` : 'You haven’t played yet')
+      : !rec.sent ? 'You finished · score not sent yet'
+      : `You took ${sum(rec.holes)} shots${s?.rank && s.of > 1 ? ` · ${UI.ordinal(s.rank)} of ${s.of}` : ''}`;
+    return { id, title: rec.by ? `${rec.by}’s challenge` : 'Your challenge', others, you, fresh: !!s?.fresh };
+  });
 }
 
 function openCompete() {
   reopen('scrCompete');
   Compete.warmUp();
   const t = ++chToken;
-  UI.renderCompete(null, competeList());
-  Compete.fetchStats().then(
-    s => { if (t === chToken) UI.renderCompete(s, competeList()); },
-    e => { if (t === chToken) UI.renderCompete({ error: e.message }, competeList()); },
-  );
+  let stats = null, sums = [];
+  const draw = () => { if (t === chToken) UI.renderCompete(stats, competeList(sums)); };
+  draw();
+  Compete.fetchStats().then(s => { stats = s; draw(); }, e => { stats = { error: e.message }; draw(); });
+  Compete.fetchSummaries().then(s => { sums = s; draw(); }, () => {});
+}
+
+// Badge on the title screen's Compete tile when someone has joined or finished one of your challenges.
+function refreshCompeteBadge() {
+  if (!Compete.available() || !Compete.recent().length) return;
+  Compete.fetchSummaries().then(list => UI.competeBadge(list.filter(s => s.fresh).length), () => {});
 }
 
 function needName(fieldId) {
@@ -458,7 +471,8 @@ async function newChallenge() {
   reopen('scrChallenge');
   const t = ++chToken;
   UI.renderChallenge({ message: `Setting up ${COMPETE_HOLES} holes…` });
-  try { const ch = await Compete.createChallenge(); if (t === chToken) playChallenge(ch); }
+  // a new challenge opens on its invite screen: share it now, play your own holes whenever you like
+  try { const ch = await Compete.createChallenge(); if (t === chToken) showChallenge(ch, t); }
   catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message }); }
   finally { creating = false; }
 }
@@ -470,13 +484,30 @@ async function openChallenge(id) {
   try {
     const rec = Compete.progress(id);
     const view = rec && Compete.finished(rec) && !rec.sent ? await Compete.submitScore(id) : await Compete.fetchChallenge(id);
-    if (t === chToken) UI.renderChallenge({ view, local: Compete.progress(id), playable: Compete.playable(view), link: Compete.link(id) });
+    if (t === chToken) showChallenge(view, t);
   } catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message, id }); }
+}
+
+function showChallenge(view, t, last = '') {
+  const key = JSON.stringify([view.players, view.playing]);
+  // a refresh with no news, or while the player is typing their name, leaves the screen alone
+  if (key !== last && !document.querySelector('#chBody input:focus')) {
+    UI.renderChallenge({ view, local: Compete.progress(view.id), playable: Compete.playable(view), link: Compete.link(view.id) });
+    Compete.markSeen(view);
+  }
+  clearTimeout(chPoll);
+  chPoll = setTimeout(async () => {
+    if (t !== chToken || document.getElementById('scrChallenge').hidden) return; // left the screen: stop
+    let next = view;
+    if (!document.hidden) try { next = await Compete.fetchChallenge(view.id); } catch { /* try again next time */ }
+    if (t === chToken) showChallenge(next, t, document.querySelector('#chBody input:focus') ? last : key);
+  }, POLL_MS);
 }
 
 function playChallenge(view) {
   if (needName('chName')) return;
   const rec = Compete.track(view);
+  if (!rec.joined) Compete.joinChallenge(view.id).then(() => { rec.joined = true; persist(); }, () => {}); // tells the creator
   if (rec.tries >= COMPETE_MAX_TRIES) { rec.holes.push(COMPETE_MAX_TRIES + 1); rec.tries = 0; persist(); } // left during the last try
   if (Compete.finished(rec)) { openChallenge(view.id); return; }
   startHole({ mode: 'compete', id: view.id, seed: view.seed, ks: view.ks, by: view.mine ? null : view.by, n: rec.holes.length + 1 });
@@ -497,7 +528,7 @@ function competeHoleDone(score) {
 
 async function shareChallenge(view) {
   const r = await Compete.share(view);
-  if (r === 'copied') UI.toast('Link copied. Paste it to a friend');
+  if (r === 'copied') UI.toast('Invite link copied. Paste it to your friends');
   else if (r === 'failed') UI.toast('Copy the link below to share it');
 }
 
@@ -597,9 +628,11 @@ export function boot() {
     openCompete, newChallenge, openChallenge, playChallenge, shareChallenge,
     setName: v => { save.player.name = v.slice(0, 16); persist(); },
     musicChoices, musicChoice, setMusic, playYouTube,
+    titleShown: refreshCompeteBadge,
   });
   setExternalChoices(YouTube.available() ? [{ id: 'youtube', name: 'YouTube video or playlist' }] : []);
   YouTube.onDockChange(fitView);
+  YouTube.onPlayError(msg => { UI.toast(msg); ytLink = ''; }); // so the same link can be retried
   loadTracks().then(() => { applyMusic(); UI.refreshMusic(); });
   UI.setCoins(save.coins);
   view.setSkin(save.equip.ball);
@@ -619,6 +652,11 @@ export function boot() {
   window.addEventListener('resize', fitView);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitView);
   goMenu('scrTitle');
+  // The smoke test sinks holes through this (a shot counts, then the ball drops in). Only with #autotest in the URL;
+  // it gives nothing a cheater couldn't already do by posting a score to the API directly.
+  if (location.hash === '#autotest') {
+    window.__holeshot = { sink: () => { if (G.state !== 'aim') return false; shoot(0, -1, 0.06); G.pendingCapture = true; return true; } };
+  }
   // challenge links (/c/<id>) land here as /?challenge=<id>
   const invite = new URLSearchParams(location.search).get('challenge');
   if (invite && Compete.available()) { history.replaceState(null, '', location.pathname); openChallenge(invite); }

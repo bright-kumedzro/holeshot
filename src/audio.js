@@ -22,7 +22,7 @@ export function applyAudio() {
   // with music off, 'ambient' lets iOS keep the player's own music (Spotify etc.) going under the sound effects
   if (navigator.audioSession) navigator.audioSession.type = save.settings.music ? 'auto' : 'ambient';
   if (!ac) return;
-  sfxBus.gain.value = save.settings.sound ? 1 : 0;
+  master.gain.setTargetAtTime(save.settings.sound ? 0.9 : 0, ac.currentTime, 0.05); // the speaker mutes everything
   musicBus.gain.setTargetAtTime(save.settings.music ? 0.45 : 0, ac.currentTime, 0.4);
   const id = currentTrack();
   if (!save.settings.music) { stopMusic(); playFile(null); }

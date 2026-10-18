@@ -46,6 +46,25 @@ export async function createChallenge() {
   return ch;
 }
 
+// Called when a player starts their holes, so the creator sees they've accepted.
+export const joinChallenge = id => post({ action: 'join', id, name: save.player.name, p: playerId() });
+
+// Who has joined and finished each recent challenge; `fresh` marks news since the player last opened it.
+export async function fetchSummaries() {
+  const ids = recent().map(([id]) => id);
+  if (!ids.length) return [];
+  const list = await call(`?ids=${ids.join(',')}&p=${playerId()}`);
+  return list.map(s => ({ ...s, fresh: !s.gone && activity(s) !== save.challenges[s.id]?.seen }));
+}
+const activity = s => `${s.joined.length}:${s.done}`;
+export function markSeen(view) {
+  const rec = save.challenges[view.id];
+  if (!rec) return;
+  const others = [...view.players, ...view.playing].filter(x => !x.you);
+  rec.seen = `${others.length}:${view.players.filter(x => !x.you).length}`;
+  persist();
+}
+
 export async function submitScore(id) {
   const rec = save.challenges[id];
   const view = await post({ action: 'score', id, name: save.player.name, p: playerId(), holes: rec.holes });
@@ -56,7 +75,7 @@ export async function submitScore(id) {
 // ---------- local progress ----------
 export const progress = id => save.challenges[id];
 export function track(ch) {
-  if (!save.challenges[ch.id]) save.challenges[ch.id] = { by: ch.mine ? null : ch.by, at: Date.now(), holes: [], tries: 0, sent: false, rewarded: false };
+  if (!save.challenges[ch.id]) save.challenges[ch.id] = { by: ch.mine ? null : ch.by, at: Date.now(), holes: [], tries: 0, sent: false, rewarded: false, joined: false, seen: '0:0' };
   const ids = Object.keys(save.challenges).sort((a, b) => save.challenges[b].at - save.challenges[a].at);
   for (const id of ids.slice(KEEP)) delete save.challenges[id];
   persist();
@@ -69,7 +88,8 @@ export const recent = () => Object.entries(save.challenges).sort(([, a], [, b]) 
 export const link = id => `${location.origin}/c/${id}`;
 export async function share(view) {
   const me = view.players.find(p => p.you);
-  const text = me ? `I took ${me.shots} shots over ${view.holes} holes on Holeshot. Can you beat me?` : 'Can you beat me on Holeshot?';
+  const text = me ? `I took ${me.shots} shots over ${view.holes} holes on Holeshot. Can you beat me?`
+    : `I’m challenging you to ${view.holes} holes on Holeshot. Fewest shots wins!`;
   if (navigator.share) {
     try { await navigator.share({ title: 'Holeshot challenge', text, url: link(view.id) }); return 'shared'; }
     catch (e) { if (e.name === 'AbortError') return 'cancelled'; }

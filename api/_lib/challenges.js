@@ -1,8 +1,9 @@
 import { COMPETE_HOLES, COMPETE_MAX_TRIES } from '../../src/config.js';
 
-// Data model: hash ch:<id> holds `meta` plus one `p:<playerId>` field per finished player (HSETNX, so a player
-// can only post once and two simultaneous posts can't overwrite each other). List pl:<playerId> holds the
-// challenges that player finished, newest first, for their win record. Player ids are anonymous, per device.
+// Data model: hash ch:<id> holds `meta`, a `j:<playerId>` field per player who accepted (started playing) and a
+// `p:<playerId>` field per player who finished (both HSETNX, so a player can only post once and simultaneous posts
+// can't overwrite each other). List pl:<playerId> holds the challenges that player finished, newest first, for
+// their win record. Player ids are anonymous, per device.
 const TTL = 60 * 60 * 24 * 365;
 const MAX_PLAYERS = 50;
 const RECORD_SIZE = 100;
@@ -27,12 +28,29 @@ const ranked = h => Object.entries(h).filter(([k]) => k.startsWith('p:'))
   .map(([k, v]) => ({ ...v, pid: k.slice(2) }))
   .sort((a, b) => a.shots - b.shots || a.at - b.at);
 
+// Accepted but not finished yet, earliest first.
+const playing = h => Object.entries(h).filter(([k]) => k.startsWith('j:') && !h[`p:${k.slice(2)}`])
+  .map(([k, v]) => ({ ...v, pid: k.slice(2) }))
+  .sort((a, b) => a.at - b.at);
+
 function present(id, h, p) {
   const { meta } = h, players = ranked(h);
   return {
     id, v: meta.v, seed: meta.seed, ks: meta.ks, by: meta.by, at: meta.at, holes: COMPETE_HOLES,
     mine: meta.byP === p,
     players: players.map(({ pid, name, shots, holes, at }) => ({ name, shots, holes, at, you: pid === p })),
+    playing: playing(h).map(({ pid, name, at }) => ({ name, at, you: pid === p })),
+  };
+}
+
+// What the challenge list needs: who else has joined, how many finished, and where you stand.
+function summarize(id, h, p) {
+  const players = ranked(h), others = [...players, ...playing(h)].filter(x => x.pid !== p);
+  const rank = players.findIndex(x => x.pid === p) + 1;
+  return {
+    id, by: h.meta.by, mine: h.meta.byP === p,
+    joined: others.map(x => x.name), done: players.filter(x => x.pid !== p).length,
+    rank, of: players.length, leader: players[0] ? { name: players[0].name, shots: players[0].shots } : null,
   };
 }
 
@@ -57,6 +75,24 @@ export async function createChallenge(db, { name, p, v, seed, ks }) {
     }
   }
   fail(500, 'Couldn’t create a challenge. Try again.');
+}
+
+// Accepting a challenge (tapping Play) tells its creator someone has taken it up.
+export async function joinChallenge(db, { id, name, p }) {
+  const who = cleanName(name);
+  if (!validPlayer(p)) fail(400, 'Bad request');
+  const h = await load(db, id);
+  if (!h[`j:${p}`] && !h[`p:${p}`]) {
+    if (Object.keys(h).filter(k => k.startsWith('j:')).length >= MAX_PLAYERS) fail(409, 'This challenge is full.');
+    await db.hsetnx(`ch:${id}`, `j:${p}`, { name: who, at: Date.now() });
+  }
+  return viewChallenge(db, id, p);
+}
+
+export async function summaries(db, ids, p) {
+  const list = String(ids || '').split(',').filter(validId).slice(0, 30);
+  const all = await Promise.all(list.map(id => db.hgetall(`ch:${id}`)));
+  return list.map((id, i) => (all[i]?.meta ? summarize(id, all[i], p) : { id, gone: true }));
 }
 
 export async function submitScore(db, { id, name, p, holes }) {
