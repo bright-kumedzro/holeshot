@@ -82,7 +82,7 @@ Download a track from [Pixabay Music](https://pixabay.com/music/). Its licence a
 ]
 ```
 
-It then appears in the picker; no code changes are needed. Tracks stream and loop, and switching between them crossfades. Keep the file names stable: MP3s are cached for 30 days. The offline cache skips music, so offline players hear the built-in theme.
+It then appears in the picker and in **Settings → Music credits**; no code changes are needed. Add `"url"` with the track's Pixabay page to link its credit. The smoke test fails if a listed file is missing or an MP3 isn't listed. Tracks stream and loop, and switching between them crossfades. Keep the file names stable: MP3s are cached for 30 days. The offline cache skips music, so offline players hear the built-in theme.
 
 **YouTube:** players paste a video or playlist link. YouTube's embed terms require the player to stay visible at 200×200 px or more with nothing covering it. So it docks at the bottom of the screen (bottom right on wide screens), and on portrait screens the course is fitted above it. The player loads from `youtube-nocookie.com`. The single-file artifact leaves YouTube and Compete out (`__YOUTUBE__` and `__COMPETE__` in `scripts/build-artifact.mjs`).
 
@@ -111,3 +111,23 @@ npm run build && npx cap add android && npx cap open android
 ```
 
 Before release, add PNG app icons (192 and 512 px). The manifest currently ships SVG icons, which Chrome accepts but some launchers don't.
+
+## Credits
+
+Music from [Pixabay](https://pixabay.com/music/), used under the Pixabay Content License, which doesn't require credit. The artists get it anyway:
+
+- *Positive Funk Groove* by Universfield
+- *Groove Machine* by Diamond Tunes
+- *Fun Funk* by Tunetank
+- *Funky Funk Beat* by Sosin
+- *Upbeat* by Alex Morgan
+- *Upbeat* by Sub Clair
+- *Uplifting Action Rock* by Ikoliks
+- *Club* by MiromaxMusic
+- *Chill Boom* by Alex MakeMusic
+- *Sunset Next to You* by JoackKenny
+- *Everyday Is a Holiday* by Brotheration Records
+- *Locust (Chill Rasta Reggae)* by Brotheration Records
+- *Halloween Waltz* by BombinSound
+
+The same list appears in the game under Settings → Music credits. It's built from `public/music/tracks.json`, so keep the two in step.

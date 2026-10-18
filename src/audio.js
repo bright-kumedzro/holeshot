@@ -53,11 +53,12 @@ export async function loadTracks() {
 let external = [];
 export function setExternalChoices(list) { external = list; }
 export const musicChoices = () => [
-  { id: 'off', name: 'Off (play your own)' },
-  { id: 'theme', name: 'Holeshot theme' },
-  ...tracks.map(t => ({ id: t.file, name: t.artist ? `${t.title} · ${t.artist}` : t.title })),
-  ...external,
+  { id: 'off', name: 'Off', sub: 'Play your own music instead', group: 'Basics' },
+  { id: 'theme', name: 'Holeshot theme', sub: 'Built in, works offline', group: 'Basics' },
+  ...tracks.map(t => ({ id: t.file, name: t.title, sub: t.artist || '', group: 'Tracks from Pixabay' })),
+  ...external.map(c => ({ group: 'Your own', ...c })),
 ];
+export const trackCredits = () => tracks.map(({ title, artist, url }) => ({ title, artist, url }));
 const currentTrack = () => {
   const id = save.settings.track;
   return tracks.some(t => t.file === id) || external.some(c => c.id === id) ? id : 'theme';

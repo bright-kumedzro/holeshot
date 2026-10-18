@@ -49,6 +49,8 @@ export function initUI(handlers) {
   $('btnChBack').onclick = () => H.openCompete();
   $('cmpName').oninput = e => H.setName(e.target.value);
   $('btnYtClose').onclick = () => H.setMusic('theme');
+  $('btnSheetClose').onclick = closeMusicSheet;
+  $('musicSheet').onclick = e => { if (e.target === e.currentTarget) closeMusicSheet(); }; // tap outside the card
   $('btnSettings').onclick = () => showScreen('scrSettings');
   document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => showScreen('scrTitle'); });
   $('tabBall').onclick = () => { shopTab = 'ball'; renderShop(); };
@@ -204,6 +206,16 @@ function renderSettings() {
     row.lastChild.appendChild(b);
   }
   list.appendChild(row);
+  renderCredits();
+}
+// Pixabay's licence doesn't require credit, but the artists get it anyway. A track's optional `url` links its page.
+function renderCredits() {
+  const credits = H.musicCredits(), box = $('musicCredits');
+  box.hidden = !credits.length;
+  box.querySelector('ul').innerHTML = credits.map(c => {
+    const title = c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>` : esc(c.title);
+    return `<li>${title}${c.artist ? ` by ${esc(c.artist)}` : ''}</li>`;
+  }).join('') + '<li class="via">Music from <a href="https://pixabay.com/music/" target="_blank" rel="noopener">Pixabay</a></li>';
 }
 // ---------- compete ----------
 export function renderCompete(stats, list) {
@@ -279,18 +291,52 @@ export function competeBadge(n) {
   b.setAttribute('aria-label', `${n} challenge${n === 1 ? '' : 's'} with news`);
 }
 
-// A native select: on phones it opens the system picker, which beats any custom list for thumbs.
+// ---------- music picker: a pill button that opens the branded music sheet ----------
 function musicPicker(labelId) {
-  const wrap = document.createElement('span');
-  wrap.className = 'music-pick';
-  wrap.innerHTML = ICONS.music;
-  const sel = document.createElement('select');
-  if (labelId) sel.setAttribute('aria-labelledby', labelId); else sel.setAttribute('aria-label', 'Music');
-  for (const c of H.musicChoices()) sel.add(new Option(c.name, c.id));
-  sel.value = H.musicChoice();
-  sel.onchange = () => H.setMusic(sel.value);
-  wrap.appendChild(sel);
-  return wrap;
+  const cur = H.musicChoices().find(c => c.id === H.musicChoice());
+  const b = document.createElement('button');
+  b.className = 'music-pick'; b.type = 'button';
+  b.setAttribute('aria-haspopup', 'listbox');
+  b.setAttribute('aria-label', `Music: ${cur?.name || 'Holeshot theme'}`);
+  if (labelId) b.setAttribute('aria-describedby', labelId);
+  b.innerHTML = `${ICONS.music}<span>${esc(cur?.name || 'Holeshot theme')}</span>${ICONS.chevron}`;
+  b.onclick = () => openMusicSheet(b);
+  return b;
+}
+
+let sheetReturn = null; // the button that opened the sheet, which gets focus back on close
+const CHOICE_ICONS = { off: ICONS.sound, theme: ICONS.star, youtube: svg('<rect x="3" y="6" width="18" height="12" rx="3.5"/><path d="M10.5 9.5l4 2.5-4 2.5z" fill="currentColor"/>') };
+function openMusicSheet(from) {
+  sheetReturn = from;
+  const list = $('musicList'), current = H.musicChoice();
+  let group = '';
+  list.innerHTML = H.musicChoices().map(c => {
+    const head = c.group !== group ? `<p class="sheet-group">${esc((group = c.group))}</p>` : '';
+    const on = c.id === current;
+    return `${head}<div class="sheet-opt${on ? ' on' : ''}" role="option" tabindex="-1" aria-selected="${on}" data-id="${esc(c.id)}">`
+      + `<span class="opt-ico">${CHOICE_ICONS[c.id] || ICONS.music}</span><span class="opt-text"><b class="name">${esc(c.name)}</b>${c.sub ? `<small>${esc(c.sub)}</small>` : ''}</span>`
+      + `<span class="opt-check">${on ? svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>') : ''}</span></div>`;
+  }).join('');
+  $('musicSheet').hidden = false;
+  const opts = [...list.querySelectorAll('.sheet-opt')];
+  const pick = el => { closeMusicSheet(); H.setMusic(el.dataset.id); };
+  opts.forEach((el, i) => {
+    el.onclick = () => pick(el);
+    el.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(el); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); opts[(i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length].focus(); }
+    };
+  });
+  const sel = opts.find(el => el.classList.contains('on')) || opts[0];
+  sel.focus({ preventScroll: true });
+  sel.scrollIntoView({ block: 'center' });
+}
+export function closeMusicSheet() {
+  if ($('musicSheet').hidden) return false;
+  $('musicSheet').hidden = true;
+  if (sheetReturn?.isConnected) sheetReturn.focus({ preventScroll: true });
+  sheetReturn = null;
+  return true;
 }
 function renderPauseQuick() {
   const q = $('pauseQuick');

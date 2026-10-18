@@ -31,8 +31,18 @@ const server = createServer((req, res) => { if (!musicFixture(req, res)) apiMidd
 const api = async body => (await fetch('http://localhost:4789/api/challenge', { method: 'POST', body: JSON.stringify(body) })).json();
 
 await mkdir('artifact/shots', { recursive: true });
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const errors = [];
+
+// The real track list and the MP3s beside it must match (the browser checks below use a fixture list instead).
+{
+  const { readdir } = await import('node:fs/promises');
+  const list = JSON.parse(await readFile('public/music/tracks.json', 'utf8'));
+  const files = (await readdir('public/music')).filter(f => f.endsWith('.mp3'));
+  const missing = list.filter(t => !files.includes(t.file)).map(t => t.file), unlisted = files.filter(f => !list.some(t => t.file === f));
+  console.log('tracks', JSON.stringify({ listed: list.length, missing, unlisted }));
+  if (missing.length || unlisted.length) errors.push(`[music] tracks.json and public/music disagree: missing ${missing.join(', ') || 'none'}, unlisted ${unlisted.join(', ') || 'none'}`);
+}
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const run = async (name, viewport) => {
   const page = await browser.newPage();
   await page.setViewport(viewport);
@@ -228,10 +238,22 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   await p.setViewport({ width: 390, height: 844, isMobile: true });
   await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
   await p.click('#btnSettings'); await wait(400);
-  const options = await p.$$eval('#settingsList select option', os => os.map(o => o.textContent));
-  await p.select('#settingsList select', 'smoke-test.wav'); await wait(1500);
+  const credits = await p.$$eval('#musicCredits:not([hidden]) li', ls => ls.map(l => l.textContent));
+  if (credits[0] !== 'Smoke Test by Holeshot' || !credits.at(-1)?.includes('Pixabay')) errors.push(`[music] credits missing: ${JSON.stringify(credits)}`);
+  // the branded picker: a pill that opens the music sheet; Escape closes it without leaving Settings
+  const pick = async id => { await p.click('#settingsList .music-pick'); await wait(300); await p.click(`#musicList [data-id="${id}"]`); await wait(300); };
+  await p.click('#settingsList .music-pick'); await wait(400);
+  const options = await p.$$eval('#musicList [role="option"]', os => os.map(o => `${o.querySelector('.name').textContent}${o.querySelector('small') ? ` · ${o.querySelector('small').textContent}` : ''}`));
+  const groups = await p.$$eval('#musicList .sheet-group', gs => gs.map(g => g.textContent));
+  await p.screenshot({ path: 'artifact/shots/music-0-sheet.png' });
+  await p.keyboard.press('Escape'); await wait(200);
+  const sheetClosed = await p.evaluate(() => document.getElementById('musicSheet').hidden && !document.getElementById('scrSettings').hidden);
+  if (!sheetClosed) errors.push('[music] Escape did not close the music sheet');
+  await pick('smoke-test.wav'); await wait(1200);
   const streamed = await p.evaluate(() => performance.getEntriesByType('resource').some(e => e.name.includes('/music/smoke-test.wav')));
-  await p.select('#settingsList select', 'youtube'); await wait(300);
+  const pill = await p.$eval('#settingsList .music-pick span', s => s.textContent);
+  if (pill !== 'Smoke Test') errors.push(`[music] the picker button doesn't show the chosen track: ${pill}`);
+  await pick('youtube');
   await p.type('.yt-field input', 'https://youtu.be/M7lc1UVf-VE?si=abc'); // YouTube's own IFrame API demo video
   await p.click('.yt-field .btn');
   // one player is made once and then loaded with videos, so ask it what it's playing rather than reading its URL
@@ -253,8 +275,8 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   if (ytMuted !== true) errors.push(`[music] the speaker did not mute YouTube (${ytMuted})`);
   await p.click('#btnYtClose'); await wait(400);
   const closed = await p.evaluate(() => document.getElementById('ytDock').hidden && !document.body.classList.contains('yt-on'));
-  console.log('music', JSON.stringify({ options, streamed, yt, ytMuted, closed }));
-  if (!options.includes('Smoke Test · Holeshot') || !options.includes('YouTube video or playlist')) errors.push('[music] picker is missing choices');
+  console.log('music', JSON.stringify({ options, groups, streamed, yt, ytMuted, closed }));
+  if (!options.includes('Smoke Test · Holeshot') || !options.some(o => o.startsWith('YouTube')) || groups.length !== 3) errors.push('[music] picker is missing choices');
   if (!streamed) errors.push('[music] picking a track did not stream it');
   if (!yt.docked || yt.host !== 'https://www.youtube-nocookie.com' || !yt.video?.includes('M7lc1UVf-VE')) errors.push(`[music] YouTube did not dock: ${JSON.stringify(yt)}`);
   if (!closed) errors.push('[music] closing the dock did not stop YouTube');

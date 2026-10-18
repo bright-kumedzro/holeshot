@@ -2,7 +2,7 @@ import { View } from './render/view.js';
 import { createWorld, step, poseBody, updateHole, castPath } from './physics.js';
 import { worldLevel, dailyLevel, endlessLevel, competeLevel, dayKey, prefetch, prefetching } from './levels/index.js';
 import { save, persist, resetSave, worldUnlocked, levelKey } from './save.js';
-import { initAudio, applyAudio, suspendAudio, sfx, loadTracks, musicChoices, musicChoice, setExternalChoices } from './audio.js';
+import { initAudio, applyAudio, suspendAudio, sfx, loadTracks, musicChoices, musicChoice, setExternalChoices, trackCredits } from './audio.js';
 import * as YouTube from './youtube.js';
 import * as UI from './ui.js';
 import * as Compete from './compete.js';
@@ -664,10 +664,10 @@ export function boot() {
     competeAvailable: Compete.available(),
     openCompete, newChallenge, openChallenge, playChallenge, shareChallenge,
     setName: v => { save.player.name = v.slice(0, 16); persist(); },
-    musicChoices, musicChoice, setMusic, playYouTube,
+    musicChoices, musicChoice, setMusic, playYouTube, musicCredits: trackCredits,
     titleShown: refreshCompeteBadge,
   });
-  setExternalChoices(YouTube.available() ? [{ id: 'youtube', name: 'YouTube video or playlist' }] : []);
+  setExternalChoices(YouTube.available() ? [{ id: 'youtube', name: 'YouTube', sub: 'Paste a video or playlist link' }] : []);
   YouTube.onDockChange(fitView);
   YouTube.onPlayError(msg => { UI.toast(msg); ytLink = ''; }); // so the same link can be retried
   loadTracks().then(() => { applyMusic(); UI.refreshMusic(); });
@@ -680,7 +680,7 @@ export function boot() {
   for (const ev of ['pointerdown', 'pointerup', 'touchend']) document.addEventListener(ev, initAudio);
   document.addEventListener('keydown', e => {
     initAudio();
-    if (e.key === 'Escape') { if (G.state === 'paused') resume(); else pause(); }
+    if (e.key === 'Escape') { if (UI.closeMusicSheet()) return; if (G.state === 'paused') resume(); else pause(); }
   });
   document.addEventListener('visibilitychange', () => {
     suspendAudio(document.hidden);

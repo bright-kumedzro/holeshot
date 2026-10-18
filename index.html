@@ -47,6 +47,13 @@
 <div class="hand" id="hand" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 <div class="fps" id="fps" hidden></div>
+<!-- music picker: a branded sheet instead of the system dropdown; slides up on phones, centred on wide screens -->
+<div class="sheet" id="musicSheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="musicSheetTitle">
+    <div class="sheet-head"><h3 id="musicSheetTitle">Music</h3><button class="icon-btn" id="btnSheetClose" aria-label="Close">✕</button></div>
+    <div class="sheet-list" id="musicList" role="listbox" aria-labelledby="musicSheetTitle"></div>
+  </div>
+</div>
 <!-- YouTube music: its embed terms need a visible player of at least 200x200, so it docks instead of hiding -->
 <div class="yt-dock" id="ytDock" hidden>
   <div class="yt-bar"><span>Music from YouTube</span><button class="yt-close" id="btnYtClose" aria-label="Stop YouTube music">✕</button></div>
@@ -112,6 +119,7 @@
   <header class="scr-head"><button class="icon-btn" data-back aria-label="Back" data-icon="back"></button><h2>Settings</h2><span class="head-stat"></span></header>
   <div class="settings" id="settingsList"></div>
   <div class="settings-foot">
+    <details class="credits" id="musicCredits" hidden><summary>Music credits</summary><ul></ul></details>
     <button class="btn white danger" id="btnReset">Reset progress</button>
     <p class="fine" id="aboutLine">Progress is saved on this device.</p>
   </div>
