@@ -165,6 +165,18 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   console.log('compete news', JSON.stringify({ badge, row }));
   if (badge !== '1' || !row.fresh || !row.text.includes('Esi joined · 0 finished')) errors.push('[compete] news of someone accepting did not show');
 
+  // live, creator's side: the list and then the open challenge update on their own while she watches
+  const post = body => fetch('http://localhost:4789/api/challenge', { method: 'POST', body: JSON.stringify(body) });
+  await post({ action: 'score', id: aId, name: 'Esi', p: 'z'.repeat(20), holes: [2, 2, 2, 2, 2] });
+  const liveList = await a.waitForFunction(() => document.querySelector('.ch-row')?.textContent.includes('1 finished'), { timeout: 9000 }).then(() => true, () => false);
+  await a.click('.ch-row');
+  await a.waitForFunction(() => document.querySelector('#scrChallenge:not([hidden]) .ch-status'), { timeout: 8000 }).catch(() => {});
+  await post({ action: 'join', id: aId, name: 'Kwame', p: 'q'.repeat(20) });
+  const liveScreen = await a.waitForFunction(() => document.querySelector('.ch-status')?.textContent.startsWith('2 accepted'), { timeout: 9000 }).then(() => true, () => false);
+  await shot(a, 'compete-3f-live');
+  console.log('compete live (creator)', JSON.stringify({ liveList, liveScreen }));
+  if (!liveList || !liveScreen) errors.push('[compete] the creator’s views did not update live');
+
   // a friend's link: made through the API with two scores, opened in a separate browser profile via /c/<id>
   const ch = await api({ action: 'create', name: 'Kofi', p: 'k'.repeat(20), v: 1, seed: 424242, ks: [0, 0, 0, 0, 0] });
   await api({ action: 'score', id: ch.id, name: 'Kofi', p: 'k'.repeat(20), holes: [2, 1, 2, 2, 2] });
@@ -191,6 +203,11 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   await b.goto(`http://localhost:4789/?challenge=${ch.id}`, { waitUntil: 'networkidle0' }); await wait(800);
   const result = { head: await text(b, '.ch-head'), rows: await b.$$eval('.board li', ls => ls.length) };
   await shot(b, 'compete-5-result');
+  // live, joiner's side: another player finishes while Yaw watches the scoreboard
+  await api({ action: 'score', id: ch.id, name: 'Akos', p: 'a'.repeat(20), holes: [3, 3, 3, 3, 3] });
+  const liveJoiner = await b.waitForFunction(() => document.querySelectorAll('.board li').length === 4, { timeout: 9000 }).then(() => true, () => false);
+  console.log('compete live (joiner)', liveJoiner);
+  if (!liveJoiner) errors.push('[compete] the joiner’s scoreboard did not update live');
   await b.click('#btnChBack'); await wait(800);
   const record = await text(b, '#cmpRecord');
   await shot(b, 'compete-6-record');

@@ -421,8 +421,6 @@ function startEndless() {
 
 // ---------- compete ----------
 let chToken = 0; // bumped on every navigation, so a slow reply can't redraw a screen the player has left
-let chPoll = 0;  // timer that refreshes the open challenge, so its creator sees people accept and finish
-const POLL_MS = 15000;
 const reopen = screen => { if (G.state === 'menu') UI.showScreen(screen); else goMenu(screen); };
 const sum = a => a.reduce((x, y) => x + y, 0);
 const names = n => (n.length === 1 ? n[0] : n.length === 2 ? `${n[0]} and ${n[1]}` : `${n[0]} and ${n.length - 1} others`);
@@ -439,21 +437,59 @@ function competeList(summaries = []) {
   });
 }
 
+// Keeps a compete view live: re-runs `refresh` (which resolves true when something changed) every few seconds
+// while that screen is showing, easing off after a minute without news, and pausing while the game is hidden.
+// Navigating away (which bumps chToken) or starting to play (which hides the screen) stops it.
+const LIVE_FAST = 4000, LIVE_SLOW = 12000, LIVE_QUIET = 15;
+function keepFresh(t, screenId, refresh) {
+  let quiet = 0;
+  const tick = async () => {
+    if (t !== chToken || document.getElementById(screenId).hidden) return;
+    if (!document.hidden) quiet = (await refresh().catch(() => false)) ? 0 : quiet + 1;
+    if (t === chToken) setTimeout(tick, quiet > LIVE_QUIET ? LIVE_SLOW : LIVE_FAST);
+  };
+  setTimeout(tick, LIVE_FAST);
+}
+// coming back to the game refreshes the live view straight away rather than waiting out an interval
+let liveNudge = null;
+document.addEventListener('visibilitychange', () => { if (!document.hidden) liveNudge?.(); });
+
 function openCompete() {
   reopen('scrCompete');
   Compete.warmUp();
   const t = ++chToken;
-  let stats = null, sums = [];
+  let stats = null, sums = [], last = '';
   const draw = () => { if (t === chToken) UI.renderCompete(stats, competeList(sums)); };
+  const loadStats = () => Compete.fetchStats().then(s => { stats = s; draw(); }, e => { stats = stats || { error: e.message }; draw(); });
+  const loadSums = async () => {
+    sums = await Compete.fetchSummaries();
+    const key = JSON.stringify(sums);
+    if (key === last) return false;
+    if (last) loadStats(); // someone finished or joined: the record may have moved too
+    last = key; draw();
+    return true;
+  };
   draw();
-  Compete.fetchStats().then(s => { stats = s; draw(); }, e => { stats = { error: e.message }; draw(); });
-  Compete.fetchSummaries().then(s => { sums = s; draw(); }, () => {});
+  loadStats(); loadSums().catch(() => {});
+  keepFresh(t, 'scrCompete', loadSums);
+  liveNudge = () => { if (t === chToken) loadSums().catch(() => {}); };
 }
 
 // Badge on the title screen's Compete tile when someone has joined or finished one of your challenges.
+// Kept live while the title screen shows.
 function refreshCompeteBadge() {
   if (!Compete.available() || !Compete.recent().length) return;
-  Compete.fetchSummaries().then(list => UI.competeBadge(list.filter(s => s.fresh).length), () => {});
+  const t = ++chToken;
+  let last = -1;
+  const check = async () => {
+    const n = (await Compete.fetchSummaries()).filter(s => s.fresh).length;
+    if (t !== chToken || n === last) return false;
+    last = n; UI.competeBadge(n);
+    return true;
+  };
+  check().catch(() => {});
+  keepFresh(t, 'scrTitle', check);
+  liveNudge = () => { if (t === chToken) check().catch(() => {}); };
 }
 
 function needName(fieldId) {
@@ -488,20 +524,21 @@ async function openChallenge(id) {
   } catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message, id }); }
 }
 
-function showChallenge(view, t, last = '') {
-  const key = JSON.stringify([view.players, view.playing]);
-  // a refresh with no news, or while the player is typing their name, leaves the screen alone
-  if (key !== last && !document.querySelector('#chBody input:focus')) {
-    UI.renderChallenge({ view, local: Compete.progress(view.id), playable: Compete.playable(view), link: Compete.link(view.id) });
-    Compete.markSeen(view);
-  }
-  clearTimeout(chPoll);
-  chPoll = setTimeout(async () => {
-    if (t !== chToken || document.getElementById('scrChallenge').hidden) return; // left the screen: stop
-    let next = view;
-    if (!document.hidden) try { next = await Compete.fetchChallenge(view.id); } catch { /* try again next time */ }
-    if (t === chToken) showChallenge(next, t, document.querySelector('#chBody input:focus') ? last : key);
-  }, POLL_MS);
+function showChallenge(view, t) {
+  let shown = '';
+  const draw = v => {
+    const key = JSON.stringify([v.players, v.playing]);
+    // no news, or the player is typing their name: leave the screen alone (it redraws on the next change)
+    if (key === shown || document.querySelector('#chBody input:focus')) return false;
+    shown = key;
+    UI.renderChallenge({ view: v, local: Compete.progress(v.id), playable: Compete.playable(v), link: Compete.link(v.id) });
+    Compete.markSeen(v);
+    return true;
+  };
+  draw(view);
+  const refresh = async () => { const v = await Compete.fetchChallenge(view.id); return t === chToken && draw(v); };
+  keepFresh(t, 'scrChallenge', refresh);
+  liveNudge = () => { if (t === chToken) refresh().catch(() => {}); };
 }
 
 function playChallenge(view) {
