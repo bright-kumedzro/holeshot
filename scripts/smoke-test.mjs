@@ -11,8 +11,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const serveStatic = async (req, res) => {
   const clean = decodeURIComponent(req.url.split('?')[0]).replace(/^\/(about|privacy)$/, '/$1.html'); // like cleanUrls
   const path = join('dist', clean.replace(/\/$/, '/index.html'));
-  try { res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream' }); res.end(await readFile(path)); }
-  catch { res.writeHead(404); res.end(); }
+  try { const body = await readFile(path); res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream' }); res.end(body); }
+  catch { // like Vercel: unknown addresses get the 404 page
+    try { res.writeHead(404, { 'content-type': 'text/html' }); res.end(await readFile(join('dist', '404.html'))); } catch { res.end(); }
+  }
 };
 // Music fixtures: a one-track list and a generated one-second tone, so the picker can be tested without real tracks.
 function toneWav(sec = 1, rate = 8000) {
@@ -314,6 +316,45 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   if (pages.credits[0] !== 'Smoke Test by Holeshot') errors.push(`[pages] About credits wrong: ${pages.credits}`);
   if (pages.links.join() !== './about,./privacy') errors.push(`[pages] Settings links wrong: ${pages.links}`);
   await p.close();
+}
+
+// When things go wrong: unknown addresses, a dead challenge link, no WebGL, and the graphics lost mid-game.
+{
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const fresh = async () => {
+    const p = await browser.newPage();
+    p.on('pageerror', e => errors.push(`[errors] ${e.message}`));
+    await p.setViewport({ width: 390, height: 844, isMobile: true });
+    return p;
+  };
+  const out = {};
+  let p = await fresh();
+  const res = await p.goto('http://localhost:4789/some/deep/missing-page', { waitUntil: 'networkidle0' });
+  out.notFound = { status: res.status(), title: await p.title(), styled: await p.evaluate(() => getComputedStyle(document.body).backgroundImage.includes('gradient')) };
+  await p.screenshot({ path: 'artifact/shots/error-404.png' });
+  await p.goto('http://localhost:4789/?challenge=zzzzzz99', { waitUntil: 'networkidle0' }); await wait(1200);
+  out.deadLink = { msg: await p.$eval('.ch-msg', e => e.textContent).catch(() => null), button: await p.$eval('#chToCompete', b => b.textContent).catch(() => null) };
+  await p.close();
+
+  p = await fresh(); // a browser with WebGL switched off
+  await p.evaluateOnNewDocument(() => { const get = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : get.call(this, t, ...a); }; });
+  await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
+  out.noWebgl = await p.$eval('#fatal h2', e => e.textContent).catch(() => null);
+  await p.screenshot({ path: 'artifact/shots/error-webgl.png' });
+  await p.close();
+
+  p = await fresh(); // the graphics context dropped while playing
+  await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
+  await p.evaluate(() => document.querySelector('#stage canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
+  await wait(500);
+  out.lost = await p.$eval('#fatal h2', e => e.textContent).catch(() => null);
+  await p.close();
+
+  console.log('errors', JSON.stringify(out));
+  if (out.notFound.status !== 404 || !out.notFound.title.startsWith('Out of bounds') || !out.notFound.styled) errors.push('[errors] the 404 page is missing or unstyled');
+  if (!out.deadLink.msg?.includes('expired') || out.deadLink.button !== 'Go to Compete') errors.push('[errors] a dead challenge link has no way forward');
+  if (out.noWebgl !== 'Your browser can’t show 3D') errors.push('[errors] no-WebGL screen missing');
+  if (out.lost !== 'The graphics took a break') errors.push('[errors] context-lost screen missing');
 }
 
 // Offline: once the service worker controls the page, a reload with no network must still open the game.

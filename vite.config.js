@@ -41,7 +41,7 @@ export default {
   define: { __COMPETE__: 'true', __YOUTUBE__: 'true' },
   build: {
     target: 'es2020', chunkSizeWarningLimit: 1200,
-    rollupOptions: { input: { main: 'index.html', about: 'about.html', privacy: 'privacy.html' } },
+    rollupOptions: { input: { main: 'index.html', about: 'about.html', privacy: 'privacy.html', notFound: '404.html' } },
   },
   plugins: [stampServiceWorker(), devApi()],
 };

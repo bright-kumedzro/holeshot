@@ -4,6 +4,7 @@ import { worldLevel, dailyLevel, endlessLevel, competeLevel, dayKey, prefetch, p
 import { save, persist, resetSave, worldUnlocked, levelKey } from './save.js';
 import { initAudio, applyAudio, suspendAudio, sfx, loadTracks, musicChoices, musicChoice, setExternalChoices, trackCredits } from './audio.js';
 import * as YouTube from './youtube.js';
+import { showFatal } from './fatal.js';
 import * as UI from './ui.js';
 import * as Compete from './compete.js';
 import { R, HOLE_R, HOLES_PER_WORLD, COIN_VALUE, STAR_VALUE, DAILY_REWARD, ENDLESS_BALLS, SKIP_AFTER, WORLDS, PHYS_H, QUALITY, COMPETE_HOLES, COMPETE_MAX_TRIES, COMPETE_REWARD } from './config.js';
@@ -521,7 +522,7 @@ async function openChallenge(id) {
     const rec = Compete.progress(id);
     const view = rec && Compete.finished(rec) && !rec.sent ? await Compete.submitScore(id) : await Compete.fetchChallenge(id);
     if (t === chToken) showChallenge(view, t);
-  } catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message, id }); }
+  } catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message, id, gone: e.status === 404 }); }
 }
 
 function showChallenge(view, t) {
@@ -688,6 +689,9 @@ export function boot() {
     if (document.hidden && (G.state === 'aim' || G.state === 'roll')) pause();
   });
   window.addEventListener('resize', fitView);
+  // phones can drop the WebGL context after the game sits in the background; a reload is the reliable way back
+  // (progress is saved as it happens, and challenges resume at the same hole and try)
+  view.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); showFatal('lost'); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitView);
   goMenu('scrTitle');
   // The smoke test sinks holes through this (a shot counts, then the ball drops in). Only with #autotest in the URL;

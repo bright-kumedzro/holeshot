@@ -19,7 +19,7 @@ async function call(query, init) {
   let res;
   try { res = await fetch(API + query, init); } catch { throw new Error('Couldn’t reach the server. Check your connection.'); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Something went wrong. Try again.');
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Something went wrong. Try again.'), { status: res.status });
   return data;
 }
 const post = body => call('', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

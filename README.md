@@ -53,12 +53,14 @@ src/
   audio.js           WebAudio sound effects and the music loop
   ui.js              menus, HUD, shop, results (DOM)
   game.js            game flow, input, scoring, saving
+  fatal.js           full-screen message when the game can't run: no WebGL, a crash while starting, graphics lost
   compete.js         challenge API calls, anonymous player ID, local challenge progress, sharing
   save.js            localStorage progress
   tokens.css         colours, fonts and gutters shared by the game (style.css) and the pages (page.css)
   page.css, about.js styles for about.html and privacy.html; about.js lists credits from tracks.json
 about.html           /about: how to play, modes, installing, credits
 privacy.html         /privacy: what's stored where and for how long, YouTube terms, deleting Compete data
+404.html             "Out of bounds" page Vercel serves for unknown addresses (uses <base href="/"> so it works at any depth)
 api/                 Vercel functions
   challenge.js       create a challenge, post a score, read a scoreboard or a player's win record
   share.js           /c/<id> share page with Open Graph tags, which forwards to the game

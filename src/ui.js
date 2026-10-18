@@ -252,8 +252,12 @@ export function renderChallenge(s) {
   const body = $('chBody');
   if (s.message) { body.innerHTML = `<p class="ch-msg">${esc(s.message)}</p>`; return; }
   if (s.error) {
-    body.innerHTML = `<p class="ch-msg">${esc(s.error)}</p>${s.id ? '<button class="btn" id="chRetry">Try again</button>' : ''}`;
-    if (s.id) $('chRetry').onclick = () => H.openChallenge(s.id);
+    // an expired or mistyped link can't be retried; anything else (offline, server hiccup) can
+    const retry = s.id && !s.gone;
+    body.innerHTML = `<p class="ch-msg">${esc(s.error)}</p>`
+      + (retry ? '<button class="btn" id="chRetry">Try again</button>' : '<button class="btn" id="chToCompete">Go to Compete</button>');
+    if (retry) $('chRetry').onclick = () => H.openChallenge(s.id);
+    else $('chToCompete').onclick = () => H.openCompete();
     return;
   }
   const v = s.view, rec = s.local, me = v.players.findIndex(p => p.you), n = v.players.length;
