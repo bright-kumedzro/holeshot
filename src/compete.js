@@ -72,6 +72,14 @@ export async function submitScore(id) {
   return view;
 }
 
+// Deletes this player's scores, accepts and record from the server, then starts a fresh anonymous identity.
+// The nickname stays on the device for convenience.
+export async function forgetMe() {
+  if (save.player.id) await post({ action: 'forget', p: save.player.id, ids: Object.keys(save.challenges) });
+  save.player.id = ''; save.challenges = {};
+  persist();
+}
+
 // ---------- local progress ----------
 export const progress = id => save.challenges[id];
 export function track(ch) {

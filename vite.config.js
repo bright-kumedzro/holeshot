@@ -22,12 +22,16 @@ function stampServiceWorker() {
   };
 }
 
-// `npm run dev` serves the api/ functions too, backed by the in-memory store.
+// `npm run dev` serves the api/ functions too, backed by the in-memory store, and /about and /privacy the way
+// Vercel's cleanUrls does.
 const devApi = () => ({
   name: 'dev-api',
   async configureServer(server) {
     const { apiMiddleware } = await import('./scripts/api-dev.mjs');
-    server.middlewares.use((req, res, next) => apiMiddleware(req, res, next).catch(next));
+    server.middlewares.use((req, res, next) => {
+      if (/^\/(about|privacy)(\?|$)/.test(req.url)) req.url = req.url.replace(/^\/(about|privacy)/, '/$1.html');
+      apiMiddleware(req, res, next).catch(next);
+    });
   },
 });
 
@@ -35,6 +39,9 @@ export default {
   base: './',
   // the single-file artifact build sets these to false: it has no server and may only load scripts from approved CDNs
   define: { __COMPETE__: 'true', __YOUTUBE__: 'true' },
-  build: { target: 'es2020', chunkSizeWarningLimit: 1200 },
+  build: {
+    target: 'es2020', chunkSizeWarningLimit: 1200,
+    rollupOptions: { input: { main: 'index.html', about: 'about.html', privacy: 'privacy.html' } },
+  },
   plugins: [stampServiceWorker(), devApi()],
 };

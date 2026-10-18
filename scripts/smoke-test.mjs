@@ -9,7 +9,8 @@ import { apiMiddleware } from './api-dev.mjs';
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const serveStatic = async (req, res) => {
-  const path = join('dist', decodeURIComponent(req.url.split('?')[0]).replace(/\/$/, '/index.html'));
+  const clean = decodeURIComponent(req.url.split('?')[0]).replace(/^\/(about|privacy)$/, '/$1.html'); // like cleanUrls
+  const path = join('dist', clean.replace(/\/$/, '/index.html'));
   try { res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream' }); res.end(await readFile(path)); }
   catch { res.writeHead(404); res.end(); }
 };
@@ -225,6 +226,15 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   if (!invite.url.includes(`challenge=`) && !invite.url.endsWith('/')) errors.push('[compete] share link did not redirect');
   if (invite.head !== 'Score to beat: 9' || result.head !== 'You’re 1st of 3' || result.rows !== 3) errors.push('[compete] challenge board is wrong');
   if (!/^1\s*Win1\s*Played100%/.test(record.replace(/\s+/g, ''))) errors.push(`[compete] record is wrong: ${record}`);
+
+  // Settings → Delete my Compete data (two taps): Yaw's score leaves the scoreboard and his record resets
+  await b.evaluate(() => { document.querySelector('#scrCompete [data-back]').click(); document.getElementById('btnSettings').click(); });
+  await wait(300);
+  await b.click('#btnForget'); await b.click('#btnForget'); await wait(1200);
+  const afterForget = await (await fetch(`http://localhost:4789/api/challenge?id=${ch.id}&p=${'k'.repeat(20)}`)).json();
+  const forgot = { toast: await text(b, '#toast'), stillListed: afterForget.players.some(p => p.name === 'Yaw') };
+  console.log('compete forget', JSON.stringify(forgot));
+  if (forgot.stillListed || !forgot.toast.includes('deleted')) errors.push('[compete] Delete my Compete data did not remove the score');
   await ctxA.close(); await ctxB.close();
 }
 
@@ -280,6 +290,29 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   if (!streamed) errors.push('[music] picking a track did not stream it');
   if (!yt.docked || yt.host !== 'https://www.youtube-nocookie.com' || !yt.video?.includes('M7lc1UVf-VE')) errors.push(`[music] YouTube did not dock: ${JSON.stringify(yt)}`);
   if (!closed) errors.push('[music] closing the dock did not stop YouTube');
+  await p.close();
+}
+
+// About and Privacy pages: load cleanly, show credits, and are linked from Settings.
+{
+  const p = await browser.newPage();
+  p.on('console', m => { if (m.type() === 'error') errors.push(`[pages] ${m.text()}`); });
+  p.on('pageerror', e => errors.push(`[pages] ${e.message}`));
+  await p.setViewport({ width: 390, height: 844, isMobile: true });
+  const pages = {};
+  for (const name of ['about', 'privacy']) {
+    const res = await p.goto(`http://localhost:4789/${name}`, { waitUntil: 'networkidle0' });
+    pages[name] = { status: res.status(), title: await p.title(), sections: await p.$$eval('main section', s => s.length) };
+    await p.screenshot({ path: `artifact/shots/page-${name}.png`, fullPage: true });
+  }
+  pages.credits = await p.goto('http://localhost:4789/about', { waitUntil: 'networkidle0' }).then(() => p.$$eval('#credits li', ls => ls.map(l => l.textContent)));
+  await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
+  await p.click('#btnSettings'); await new Promise(r => setTimeout(r, 300));
+  pages.links = await p.$$eval('.page-links a', as => as.map(a => a.getAttribute('href')));
+  console.log('pages', JSON.stringify(pages));
+  if (pages.about.status !== 200 || pages.privacy.status !== 200 || pages.privacy.sections < 5) errors.push('[pages] a page did not load');
+  if (pages.credits[0] !== 'Smoke Test by Holeshot') errors.push(`[pages] About credits wrong: ${pages.credits}`);
+  if (pages.links.join() !== './about,./privacy') errors.push(`[pages] Settings links wrong: ${pages.links}`);
   await p.close();
 }
 

@@ -112,6 +112,27 @@ export async function submitScore(db, { id, name, p, holes }) {
   return viewChallenge(db, id, p);
 }
 
+// "Delete my Compete data": removes the player's scores and accepts from every challenge they finished (their
+// record list) plus any others their device knows about, then the record itself. Challenges they created stay
+// for the people who played them, with the creator's name replaced.
+export async function forgetPlayer(db, { p, ids }) {
+  if (!validPlayer(p)) fail(400, 'Bad request');
+  const known = Array.isArray(ids) ? ids.filter(validId).slice(0, 100) : [];
+  const all = [...new Set([...(await db.lrange(`pl:${p}`, 0, RECORD_SIZE - 1)), ...known])];
+  let removed = 0;
+  for (const id of all) {
+    const h = await db.hgetall(`ch:${id}`);
+    if (!h?.meta) continue;
+    removed += await db.hdel(`ch:${id}`, `p:${p}`, `j:${p}`);
+    if (h.meta.byP === p) { // keep the challenge for its other players, minus who made it
+      await db.hdel(`ch:${id}`, 'meta');
+      await db.hsetnx(`ch:${id}`, 'meta', { ...h.meta, by: 'Someone', byP: '' });
+    }
+  }
+  await db.del(`pl:${p}`);
+  return { forgotten: true, removed };
+}
+
 // A challenge counts as a game once at least two people have finished it; you win it if you're top.
 export async function playerStats(db, p) {
   if (!validPlayer(p)) fail(400, 'Bad request');

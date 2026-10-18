@@ -28,10 +28,13 @@ self.addEventListener('fetch', e => {
   }));
 });
 
+// The game's own page is cached as './' whatever its query (?challenge=…); other pages (/about, /privacy) under
+// their own address, so visiting them never replaces the game in the offline cache.
 async function networkFirst(req) {
   const cache = await caches.open(CACHE);
-  const net = fetch(req).then(res => { if (res.ok) cache.put('./', res.clone()); return res; });
-  const hit = await cache.match('./');
+  const path = new URL(req.url).pathname, key = /^\/(index\.html)?$/.test(path) ? './' : path;
+  const net = fetch(req).then(res => { if (res.ok && !res.redirected) cache.put(key, res.clone()); return res; });
+  const hit = await cache.match(key) || (key === './' ? null : await cache.match('./'));
   if (!hit) return net;
   return Promise.race([net.catch(() => hit), new Promise(r => setTimeout(() => r(hit), NET_TIMEOUT))]);
 }

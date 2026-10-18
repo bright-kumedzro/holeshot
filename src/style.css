@@ -1,24 +1,5 @@
 /* Layout: full-bleed 3D course; HUD floats in the safe-area corners; menus are frosted sheets over the live course. */
-:root {
-  --sky: #2B7FC4;          /* per-hole backdrop, swapped by script */
-  --ink: #1B1A33;          /* outlines and dark text */
-  --ink-soft: #4B4A6B;
-  --gold: #FFD21F;
-  --gold-deep: #D9A400;
-  --pink: #FF2E88;
-  --pink-deep: #C2185F;
-  --paper: #FFFFFF;
-  --paper-deep: #CFD1E6;
-  --glass: rgba(255, 255, 255, 0.2);
-  --scrim: rgba(20, 16, 52, 0.55);
-  --switch-off: #D5D7E8;
-  --dock-h: 246px;         /* YouTube dock: 34px bar + 200px player + padding */
-  --font-display: "Lilita One", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
-  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
-  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
-  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
-  color-scheme: light;
-}
+@import './tokens.css';
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -298,6 +279,7 @@ svg { display: block; }
 .toggle-row[aria-checked="true"] .switch::after { transform: translateX(22px); }
 .settings-foot { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 520px; margin: 26px auto 0; }
 .fine { margin: 0; font-weight: 700; font-size: 13px; opacity: 0.8; text-align: center; }
+.page-links a { color: inherit; text-underline-offset: 3px; }
 .credits { width: 100%; border-radius: 20px; padding: 12px 16px; background: var(--glass); font-weight: 700; font-size: 14px; }
 .credits summary { cursor: pointer; font-family: var(--font-display); font-weight: 400; font-size: 18px; }
 .credits ul { margin: 10px 0 2px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }

@@ -55,6 +55,10 @@ src/
   game.js            game flow, input, scoring, saving
   compete.js         challenge API calls, anonymous player ID, local challenge progress, sharing
   save.js            localStorage progress
+  tokens.css         colours, fonts and gutters shared by the game (style.css) and the pages (page.css)
+  page.css, about.js styles for about.html and privacy.html; about.js lists credits from tracks.json
+about.html           /about: how to play, modes, installing, credits
+privacy.html         /privacy: what's stored where and for how long, YouTube terms, deleting Compete data
 api/                 Vercel functions
   challenge.js       create a challenge, post a score, read a scoreboard or a player's win record
   share.js           /c/<id> share page with Open Graph tags, which forwards to the game
@@ -97,6 +101,8 @@ The web build is hosted on Vercel from the GitHub repo. `vercel.json` sets the V
 The service worker loads the page network-first, so players get a new deploy on their next visit, and falls back to the cache when offline. The build stamps the cache name in `dist/sw.js` with a hash of the output (see `vite.config.js`). Each deploy therefore gets a fresh cache, and the old one is deleted. It never caches `api/` or `/c/` responses.
 
 Compete stores challenges in a free Upstash Redis database in London. The functions run in Vercel's London region (`lhr1`) to sit next to it. Vercel needs `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set as environment variables. Without them, the API answers 503 and the rest of the game still works.
+
+`/about` and `/privacy` are extra Vite pages (see `build.rollupOptions.input`), served without `.html` by `cleanUrls`. Settings links to both. If you change what the game stores or which services it uses, update `privacy.html` and its date. YouTube's embed terms require the policy. **Delete my Compete data** in Settings calls the API's `forget` action. It removes the player's scores, accepts and record, and blanks their name on challenges they created.
 
 Challenges store a seed plus the reroll each hole settled on, not the hole layouts. If a change to the generator or physics alters generated holes, bump `LEVELS_VERSION` in `src/config.js`. Older challenges then show a "made on an older version" message instead of building different holes.
 

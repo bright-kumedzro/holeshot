@@ -66,12 +66,19 @@ export function initUI(handlers) {
   $('btnResMenu').onclick = () => H.toLevels();
   $('btnRunAgain').onclick = () => H.endless();
   $('btnRunMenu').onclick = () => H.home();
-  const reset = $('btnReset');
-  reset.onclick = () => {
-    if (reset.classList.contains('armed')) { reset.classList.remove('armed'); reset.textContent = 'Reset progress'; H.resetProgress(); return; }
-    reset.classList.add('armed'); reset.textContent = 'Tap again to erase everything';
-    setTimeout(() => { reset.classList.remove('armed'); reset.textContent = 'Reset progress'; }, 3500);
+  // destructive buttons ask for a second tap within a few seconds
+  const twoTap = (el, label, armedLabel, act) => {
+    el.onclick = () => {
+      if (el.classList.contains('armed')) { el.classList.remove('armed'); el.textContent = label; act(); return; }
+      el.classList.add('armed'); el.textContent = armedLabel;
+      setTimeout(() => { el.classList.remove('armed'); el.textContent = label; }, 3500);
+    };
   };
+  twoTap($('btnReset'), 'Reset progress', 'Tap again to erase everything', () => H.resetProgress());
+  $('btnForget').hidden = !H.competeAvailable;
+  twoTap($('btnForget'), 'Delete my Compete data', 'Tap again to delete it from our server', () => H.forgetMe());
+  // the single-file build has no pages of its own, so it links to the live site
+  if (!H.competeAvailable) for (const id of ['lnkAbout', 'lnkPrivacy']) $(id).href = `https://playholeshot.vercel.app/${id === 'lnkAbout' ? 'about' : 'privacy'}`;
   document.addEventListener('click', e => { if (e.target.closest('button')) H.click(); }, true);
 }
 

@@ -666,6 +666,7 @@ export function boot() {
     setName: v => { save.player.name = v.slice(0, 16); persist(); },
     musicChoices, musicChoice, setMusic, playYouTube, musicCredits: trackCredits,
     titleShown: refreshCompeteBadge,
+    forgetMe: () => Compete.forgetMe().then(() => UI.toast('Your Compete data was deleted'), e => UI.toast(e.message)),
   });
   setExternalChoices(YouTube.available() ? [{ id: 'youtube', name: 'YouTube', sub: 'Paste a video or playlist link' }] : []);
   YouTube.onDockChange(fitView);

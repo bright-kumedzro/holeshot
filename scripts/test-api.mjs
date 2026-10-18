@@ -61,5 +61,15 @@ ok(html.includes(`/?challenge=${id}`), 'share page sends people on to the challe
 const generic = await (await share(new Request('https://x/api/share?id=%3Cscript%3E'))).text();
 ok(generic.includes('<title>Holeshot</title>') && !generic.includes('<script>alert'), 'bad ids get the generic preview');
 
+// forgetting: Ama (the creator) deletes her data; her score goes, the challenge stays for the others, unnamed
+r = await call('POST', '', { action: 'forget', p: A, ids: [id] });
+ok(r.status === 200 && r.data.forgotten, 'forget succeeds');
+r = await call('GET', `?id=${id}&p=${B}`);
+ok(!r.data.players.some(p => p.name === 'Ama') && r.data.players.length === 3 && r.data.by === 'Someone', 'forgetting removes your score and your name as creator');
+stats = (await call('GET', `?stats=${A}`)).data;
+ok(stats.played === 0 && stats.waiting === 0, 'forgetting clears your record');
+await call('POST', '', { action: 'forget', p: D, ids: [] }); // Yaw's device sends no ids: found through his record list
+ok(!(await call('GET', `?id=${id}&p=${B}`)).data.players.some(p => p.name === 'Yaw'), 'forget finds challenges through the record list');
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAPI checks pass');
 process.exit(failed ? 1 : 0);

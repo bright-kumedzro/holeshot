@@ -21,6 +21,8 @@ const memory = {
     return 1;
   },
   async hlen(k) { return mem.get(k)?.size || 0; },
+  async hdel(k, ...fs) { const h = mem.get(k); let n = 0; for (const f of fs) n += h?.delete(f) ? 1 : 0; return n; },
+  async del(k) { return mem.delete(k) ? 1 : 0; },
   async expire() { return 1; },
   async lpush(k, v) { mem.set(k, [v, ...list(k)]); return list(k).length; },
   async ltrim(k, a, b) { mem.set(k, list(k).slice(a, b + 1)); return 'OK'; },

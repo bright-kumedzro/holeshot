@@ -1,0 +1,36 @@
+/* About and Privacy pages: the game's tokens and type, as a readable scrolling page. */
+@import './tokens.css';
+* { box-sizing: border-box; }
+/* the gradient spans the whole page (fixed backgrounds stop at one screen and iOS ignores them); the html colour
+   matches its end, so overscroll and short pages never show white */
+html { background: #1D5E9C; }
+body {
+  margin: 0; min-height: 100vh; color: var(--paper); font-family: var(--font-body); font-weight: 700; line-height: 1.55;
+  background: linear-gradient(180deg, #4A9EE0 0, var(--sky) 480px, #1D5E9C 100%);
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) var(--gutter-r) calc(env(safe-area-inset-bottom, 0px) + 40px) var(--gutter-l);
+}
+a { color: inherit; text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 760px; margin: 0 auto 28px; }
+.brand {
+  font-family: var(--font-display); font-size: 34px; color: var(--gold); text-decoration: none; line-height: 1;
+  -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink); transform: rotate(-3deg);
+}
+.play {
+  display: inline-flex; align-items: center; padding: 12px 22px; border-radius: 18px; text-decoration: none;
+  background: var(--gold); color: var(--ink); box-shadow: 0 5px 0 var(--gold-deep); font-family: var(--font-display); font-size: 20px;
+}
+.play:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--gold-deep); }
+main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 400; font-size: clamp(38px, 8vw, 56px); line-height: 1.05; text-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+.lede { margin: 0; font-size: 18px; opacity: 0.95; }
+section { background: var(--paper); color: var(--ink); border-radius: 24px; padding: 20px 22px; box-shadow: 0 6px 0 rgba(0,0,0,0.15); }
+section h2 { margin: 0 0 8px; font-family: var(--font-display); font-weight: 400; font-size: 26px; }
+section h3 { margin: 16px 0 4px; font-family: var(--font-display); font-weight: 400; font-size: 20px; }
+section p, section ul { margin: 0 0 10px; }
+section ul { padding-left: 22px; }
+section li + li { margin-top: 4px; }
+section :last-child { margin-bottom: 0; }
+section a { color: var(--pink-deep); }
+.meta { margin: 0; font-size: 14px; opacity: 0.85; }
+footer { max-width: 760px; margin: 28px auto 0; text-align: center; font-size: 14px; opacity: 0.9; }

@@ -1,0 +1,21 @@
+/* Design tokens shared by the game (style.css) and the About and Privacy pages (page.css). */
+:root {
+  --sky: #2B7FC4;          /* per-hole backdrop, swapped by script */
+  --ink: #1B1A33;          /* outlines and dark text */
+  --ink-soft: #4B4A6B;
+  --gold: #FFD21F;
+  --gold-deep: #D9A400;
+  --pink: #FF2E88;
+  --pink-deep: #C2185F;
+  --paper: #FFFFFF;
+  --paper-deep: #CFD1E6;
+  --glass: rgba(255, 255, 255, 0.2);
+  --scrim: rgba(20, 16, 52, 0.55);
+  --switch-off: #D5D7E8;
+  --dock-h: 246px;         /* YouTube dock: 34px bar + 200px player + padding */
+  --font-display: "Lilita One", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
