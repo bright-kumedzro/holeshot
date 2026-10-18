@@ -1,3 +1,5 @@
+import './analytics.js';
+
 // About page: the public play counts from /api/stats (the panel stays hidden if they can't load), and the music
 // credits from the same tracks.json the game reads, so there's one list to keep.
 const stats = document.getElementById('stats');

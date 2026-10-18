@@ -1,4 +1,5 @@
 import './style.css';
+import './analytics.js';
 import { showFatal, webglAvailable } from './fatal.js';
 
 // The game makes its WebGL renderer as soon as it loads, so it's loaded only once WebGL is known to work, and

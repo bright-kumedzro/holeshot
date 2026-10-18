@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",
+    "@vercel/analytics": "^2.0.1",
     "three": "0.160.1"
   },
   "devDependencies": {

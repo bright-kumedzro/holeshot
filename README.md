@@ -7,7 +7,7 @@ A 3D one-shot ball-into-hole game for the browser and phones. Drag back anywhere
 - **Progression**: 1–3 stars per hole, coins on the course, a shop with 12 ball skins and 6 trails, a daily hole with a streak reward, and an endless mode with lives.
 - **Compete**: create a 5-hole challenge, send the invite link, and play your own holes whenever you like; whoever takes the fewest shots wins. The creator sees who has accepted (started playing) and who has finished, the challenge screen refreshes while open, and the Compete tile shows a badge when there's news. No accounts: players type a nickname, and each device keeps an anonymous ID with a record of wins out of games played.
 - **Music**: players pick from the built-in synthesised theme, tracks from Pixabay, a YouTube video or playlist, or Off (play your own). They can switch from Settings or mid-hole from the pause menu. The speaker button mutes all game audio, YouTube included.
-- **Play counts**: the game reports anonymous counts (first time ever, today, this week and this month, plus shots and holes since the last report), with no ID of any kind. The server keeps only running totals, which are public on the About page and at `/api/stats`.
+- **Play counts**: the game reports anonymous counts (first time ever, today, this week and this month, plus shots and holes since the last report), with no ID of any kind. The server keeps only running totals, which are public on the About page and at `/api/stats`. Page views, referrers and countries come from Vercel Web Analytics (cookieless), shown in the Vercel dashboard.
 - **Feel**: slow motion when the ball drops, "Ooh!" near misses, camera shake, particles, synthesised sound and music, vibration, and a bounce preview.
 
 ## Run it
@@ -58,6 +58,7 @@ src/
   fatal.js           full-screen message when the game can't run: no WebGL, a crash while starting, graphics lost
   compete.js         challenge API calls, anonymous player ID, local challenge progress, sharing
   metrics.js         anonymous play-count reports to /api/stats (no ID)
+  analytics.js       Vercel Web Analytics (page views, referrers, countries), only on the https site
   periods.js         UTC day, ISO week and month keys, shared with the stats API
   save.js            localStorage progress
   tokens.css         colours, fonts and gutters shared by the game (style.css) and the pages (page.css)
