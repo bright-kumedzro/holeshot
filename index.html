@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Holeshot</title>
+  <meta name="theme-color" content="#2B7FC4">
+  <meta name="description" content="One shot, one hole. A 3D flick-the-ball puzzle game.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+</head>
+<body>
+<!--app-->
+<div id="stage" aria-label="Course. Drag back anywhere and release to shoot."></div>
+
+<div class="coin-pill" id="coinPill" aria-label="Coins"><i class="coin-ico" aria-hidden="true"></i><span id="coinCount">0</span></div>
+
+<div class="hud" id="hud" hidden>
+  <button class="icon-btn" id="btnPause" aria-label="Pause" data-icon="pause"></button>
+  <div class="hud-mid">
+    <div class="hud-label" id="hudLabel"></div>
+    <div class="track">
+      <span class="node" id="nodeA">1</span>
+      <span class="bar"><i id="barFill"></i></span>
+      <span class="node next" id="nodeB">2</span>
+    </div>
+    <div class="hud-sub" id="hudSub"></div>
+  </div>
+  <div class="hud-spacer" aria-hidden="true"></div>
+</div>
+
+<div class="banner" id="banner" aria-live="polite"></div>
+<div class="combo" id="combo"></div>
+<div class="hand" id="hand" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="fps" id="fps" hidden></div>
+
+<div class="foot" id="foot" hidden>
+  <p class="hint" id="hint"></p>
+  <button class="skip" id="btnSkip" hidden>Skip this hole</button>
+</div>
+
+<section class="screen title-screen" id="scrTitle" hidden>
+  <div class="title-inner">
+    <h1 class="logo" id="logo">Holeshot</h1>
+    <p class="tagline">One shot. One hole. Five worlds to clear.</p>
+    <button class="btn big play" id="btnPlay"><span>Play</span><small id="playSub">World 1 · Hole 1</small></button>
+    <div class="tile-row">
+      <button class="tile" id="btnLevels" data-icon="grid"><span>Holes</span></button>
+      <button class="tile" id="btnDaily" data-icon="calendar"><span>Daily</span><b class="badge" id="dailyBadge" hidden>New</b></button>
+      <button class="tile" id="btnEndless" data-icon="infinity"><span>Endless</span></button>
+    </div>
+    <div class="pill-row">
+      <button class="btn pink" id="btnShop" data-icon="bag"><span>Shop</span></button>
+      <button class="btn white" id="btnSettings" data-icon="gear"><span>Settings</span></button>
+    </div>
+    <p class="stat-line" id="statLine"></p>
+  </div>
+</section>
+
+<section class="screen" id="scrLevels" hidden>
+  <header class="scr-head"><button class="icon-btn" data-back aria-label="Back" data-icon="back"></button><h2>Holes</h2><span class="head-stat" id="starTotal"></span></header>
+  <div class="world-list" id="worldList"></div>
+</section>
+
+<section class="screen" id="scrShop" hidden>
+  <header class="scr-head"><button class="icon-btn" data-back aria-label="Back" data-icon="back"></button><h2>Shop</h2><span class="head-stat"></span></header>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabBall" aria-selected="true">Balls</button>
+    <button role="tab" id="tabTrail" aria-selected="false">Trails</button>
+  </div>
+  <div class="shop-grid" id="shopGrid"></div>
+</section>
+
+<section class="screen" id="scrSettings" hidden>
+  <header class="scr-head"><button class="icon-btn" data-back aria-label="Back" data-icon="back"></button><h2>Settings</h2><span class="head-stat"></span></header>
+  <div class="settings" id="settingsList"></div>
+  <div class="settings-foot">
+    <button class="btn white danger" id="btnReset">Reset progress</button>
+    <p class="fine" id="aboutLine">Progress is saved on this device.</p>
+  </div>
+</section>
+
+<div class="modal" id="mdlPause" hidden>
+  <div class="card" role="dialog" aria-labelledby="pauseTitle">
+    <h3 id="pauseTitle">Paused</h3>
+    <div class="stack">
+      <button class="btn" id="btnResume">Resume</button>
+      <button class="btn white" id="btnRestart">Restart hole</button>
+      <button class="btn white" id="btnToLevels">All holes</button>
+      <button class="btn white" id="btnHome">Main menu</button>
+    </div>
+    <div class="quick" id="pauseQuick"></div>
+  </div>
+</div>
+
+<div class="modal" id="mdlResult" hidden>
+  <div class="card result" role="dialog" aria-labelledby="resTitle">
+    <p class="eyebrow" id="resEyebrow"></p>
+    <h3 id="resTitle"></h3>
+    <div class="res-stars" id="resStars"></div>
+    <ul class="res-lines" id="resLines"></ul>
+    <p class="res-note" id="resNote"></p>
+    <div class="row">
+      <button class="btn white sq" id="btnReplay" aria-label="Replay hole" data-icon="restart"></button>
+      <button class="btn white sq" id="btnResMenu" aria-label="All holes" data-icon="grid"></button>
+      <button class="btn grow" id="btnNext">Next hole</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mdlRun" hidden>
+  <div class="card" role="dialog" aria-labelledby="runTitle">
+    <p class="eyebrow">Endless</p>
+    <h3 id="runTitle">Out of balls</h3>
+    <p class="run-big" id="runHoles">0</p>
+    <p class="run-sub" id="runSub"></p>
+    <div class="row">
+      <button class="btn white" id="btnRunMenu">Menu</button>
+      <button class="btn grow" id="btnRunAgain">Play again</button>
+    </div>
+  </div>
+</div>
+<!--/app-->
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

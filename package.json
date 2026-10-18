@@ -1,0 +1,20 @@
+{
+  "name": "holeshot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "build:artifact": "node scripts/build-artifact.mjs"
+  },
+  "dependencies": {
+    "three": "0.160.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.21.5",
+    "puppeteer-core": "^22.15.0",
+    "vite": "5.4.11"
+  }
+}
