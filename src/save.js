@@ -13,6 +13,8 @@ const defaults = () => ({
   autoQuality: 0,   // QUALITY tier that auto mode settled on for this device
   daily: { last: '', streak: 0, done: {} },
   endlessBest: 0,
+  player: { id: '', name: '' }, // anonymous compete identity, per device
+  challenges: {},   // challenge id -> { by, at, holes: [shots per finished hole], tries, sent, rewarded }
   stats: { shots: 0, holes: 0, aces: 0 },
 });
 
@@ -39,10 +41,11 @@ export function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* ignore */ }
 }
 
+// Keeps the compete identity and challenge progress: they belong to a server-side record, not the campaign.
 export function resetSave() {
-  const d = defaults();
+  const keep = { player: save.player, challenges: save.challenges };
   for (const k of Object.keys(save)) delete save[k];
-  Object.assign(save, d);
+  Object.assign(save, defaults(), keep);
   persist();
 }
 

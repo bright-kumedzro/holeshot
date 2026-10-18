@@ -6,6 +6,16 @@
   <title>Holeshot</title>
   <meta name="theme-color" content="#2B7FC4">
   <meta name="description" content="One shot, one hole. A 3D flick-the-ball puzzle game.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Holeshot">
+  <meta property="og:title" content="Holeshot">
+  <meta property="og:description" content="One shot, one hole. A 3D flick-the-ball puzzle game you can play in your browser. Challenge your friends.">
+  <meta property="og:url" content="https://playholeshot.vercel.app/">
+  <meta property="og:image" content="https://playholeshot.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Holeshot: a ball lined up to roll into the hole on a 3D course">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,6 +62,7 @@
       <button class="tile" id="btnLevels" data-icon="grid"><span>Holes</span></button>
       <button class="tile" id="btnDaily" data-icon="calendar"><span>Daily</span><b class="badge" id="dailyBadge" hidden>New</b></button>
       <button class="tile" id="btnEndless" data-icon="infinity"><span>Endless</span></button>
+      <button class="tile" id="btnCompete" data-icon="versus"><span>Compete</span></button>
     </div>
     <div class="pill-row">
       <button class="btn pink" id="btnShop" data-icon="bag"><span>Shop</span></button>
@@ -73,6 +84,23 @@
     <button role="tab" id="tabTrail" aria-selected="false">Trails</button>
   </div>
   <div class="shop-grid" id="shopGrid"></div>
+</section>
+
+<section class="screen" id="scrCompete" hidden>
+  <header class="scr-head"><button class="icon-btn" data-back aria-label="Back" data-icon="back"></button><h2>Compete</h2><span class="head-stat"></span></header>
+  <div class="compete">
+    <div class="record" id="cmpRecord" aria-live="polite"></div>
+    <label class="name-field"><span>Your name</span><input id="cmpName" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Shown to the people you challenge"></label>
+    <button class="btn big" id="btnNewChallenge">New challenge</button>
+    <p class="fine">Play 5 holes, then send the link. Whoever takes the fewest shots wins.</p>
+    <h3 class="list-title">Your challenges</h3>
+    <div class="ch-list" id="cmpList"></div>
+  </div>
+</section>
+
+<section class="screen" id="scrChallenge" hidden>
+  <header class="scr-head"><button class="icon-btn" id="btnChBack" aria-label="Back" data-icon="back"></button><h2>Challenge</h2><span class="head-stat"></span></header>
+  <div class="compete" id="chBody"></div>
 </section>
 
 <section class="screen" id="scrSettings" hidden>

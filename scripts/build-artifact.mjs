@@ -6,7 +6,8 @@ const res = await build({
   entryPoints: ['src/main.js'],
   bundle: true, minify: true, format: 'iife', target: 'es2020',
   write: false, outdir: 'artifact/tmp',
-  define: { 'import.meta.env.DEV': 'true' }, // "dev" here only means: skip service-worker registration
+  // "dev" here only means: skip service-worker registration. Compete needs the API, which the artifact lacks.
+  define: { 'import.meta.env.DEV': 'true', __COMPETE__: 'false' },
   logLevel: 'warning',
 });
 const js = res.outputFiles.find(f => f.path.endsWith('.js')).text.replace(/<\/script/gi, '<\/script');

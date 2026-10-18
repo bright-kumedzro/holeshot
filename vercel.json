@@ -3,6 +3,8 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "regions": ["lhr1"],
+  "rewrites": [{ "source": "/c/:id", "destination": "/api/share?id=:id" }],
   "headers": [
     {
       "source": "/assets/(.*)",

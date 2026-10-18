@@ -1,9 +1,9 @@
 // Brute-force solver: for every hole, simulate shots (angle x power x launch time) until one sinks.
 // Also checks that ball starts, holes and coins are clear of geometry. Usage: node scripts/check-levels.mjs [endlessCount]
-import { worldLevel, endlessLevel, dailyLevel, dayKey } from '../src/levels/index.js';
+import { worldLevel, endlessLevel, dailyLevel, dayKey, prepareChallenge, competeLevel } from '../src/levels/index.js';
 import { createWorld, poseBody } from '../src/physics.js';
 import { findShot } from '../src/levels/solver.js';
-import { WORLDS, HOLES_PER_WORLD, R, HOLE_R } from '../src/config.js';
+import { WORLDS, HOLES_PER_WORLD, R, HOLE_R, COMPETE_HOLES } from '../src/config.js';
 import { closestOnPoly, zoneContains } from '../src/geom.js';
 
 function overlaps(W, x, z, pad) {
@@ -38,5 +38,9 @@ let bad = 0;
 for (let w = 0; w < WORLDS.length; w++) for (let i = 0; i < HOLES_PER_WORLD; i++) if (!check(`${WORLDS[w].name} ${i + 1}`, worldLevel(w, i))) bad++;
 if (!check(`Daily ${dayKey(0)}`, dailyLevel(dayKey(0)))) bad++;
 for (let n = 1; n <= endlessCount; n++) if (!check(`Endless #${n}`, endlessLevel(12345, n))) bad++;
+for (const seed of [7, 424242, 3141592653]) {
+  const ks = await prepareChallenge(seed, COMPETE_HOLES);
+  for (let n = 1; n <= COMPETE_HOLES; n++) if (!check(`Challenge ${seed} #${n}`, competeLevel(seed, n, ks[n - 1]))) bad++;
+}
 console.log(bad ? `\n${bad} hole(s) need attention` : '\nAll holes pass');
 process.exit(bad ? 1 : 0);

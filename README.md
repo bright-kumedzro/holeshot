@@ -5,13 +5,14 @@ A 3D one-shot ball-into-hole game for the browser and phones. Drag back anywhere
 - **5 worlds, 60 holes**: Breezy Park, Dune Drive, Frostbite, Neon Night and Lava Works. Hole 12 of each world is a boss, where you collect keys to unlock the cup.
 - **Mechanics**: spinners, sliders, gates, pegs, triangle bumpers, pop bumpers, sand, ice, water and lava hazards, conveyor belts, boost pads, portals and moving holes.
 - **Progression**: 1–3 stars per hole, coins on the course, a shop with 12 ball skins and 6 trails, a daily hole with a streak reward, and an endless mode with lives.
+- **Compete**: start a 5-hole challenge, send the link, and whoever takes the fewest shots wins. No accounts: players type a nickname, and each device keeps an anonymous ID with a record of wins out of games played.
 - **Feel**: slow motion when the ball drops, "Ooh!" near misses, camera shake, particles, synthesised sound and music, vibration, and a bounce preview.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173, also reachable from a phone on the same Wi-Fi
+npm run dev        # http://localhost:5173, also reachable from a phone on the same Wi-Fi; serves api/ with an in-memory store
 npm run build      # production build in dist/ (works offline and installs as a PWA)
 npm run preview    # serve dist/ locally
 ```
@@ -24,8 +25,10 @@ Run `npm run dev` and open the `Network:` URL it prints on a phone connected to 
 
 | Command | What it does |
 | --- | --- |
-| `node scripts/check-levels.mjs [n]` | Brute-force solver. Checks that all 60 campaign holes, today's daily hole and `n` endless holes have at least one sinking shot, that boss keys can be reached, and that nothing overlaps the ball start, the hole or a coin. Run it after editing levels. |
-| `node scripts/smoke-test.mjs` | Runs `dist/` in your installed Chrome, headless. It expects Chrome at the default Windows path; elsewhere, set `CHROME_PATH`. Fails on console errors, fires a real shot, tours each mechanic, checks the graphics settings and that the game opens offline, and saves screenshots to `artifact/shots/`. Run `npm run build` first. |
+| `node scripts/check-levels.mjs [n]` | Brute-force solver. Checks that all 60 campaign holes, today's daily hole, `n` endless holes and three sample challenges have at least one sinking shot, that boss keys can be reached, and that nothing overlaps the ball start, the hole or a coin. Run it after editing levels. |
+| `node scripts/smoke-test.mjs` | Runs `dist/` in your installed Chrome, headless. It expects Chrome at the default Windows path; elsewhere, set `CHROME_PATH`. Fails on console errors, fires a real shot, tours each mechanic, checks the graphics settings, drives Compete (create, join by link, send a score, win record) and checks that the game opens offline, and saves screenshots to `artifact/shots/`. Run `npm run build` first. |
+| `node scripts/test-api.mjs` | Tests the challenge API against the in-memory store: validation, one score per player, ranking, win records and the share page. Run it after changing `api/`. |
+| `node scripts/make-og.mjs` | Redraws `public/og.png`, the link-preview image. |
 | `npm run build:artifact` | Bundles everything into `artifact/holeshot.html`, a single self-contained page used for the shareable claude.ai preview. |
 
 ## Code map
@@ -40,7 +43,7 @@ src/
     handmade.js      the hand-built holes and the five bosses
     generator.js     seeded hole generator (obstacles placed in bands; gaps aimed at the ball-to-hole line)
     solver.js        shot search used by the generator and the check script
-    index.js         maps world/daily/endless to levels, rerolls unfair seeds, prefetches the next hole in the background, places coins
+    index.js         maps world/daily/endless/challenge to levels, rerolls unfair seeds, prefetches the next hole in the background, places coins
   render/
     view.js          Three.js scene: course building, camera fit, aim guide, per-frame animation
     textures.js      procedural canvas textures (ball skins, floors, zones, portals)
@@ -49,7 +52,12 @@ src/
   audio.js           WebAudio sound effects and the music loop
   ui.js              menus, HUD, shop, results (DOM)
   game.js            game flow, input, scoring, saving
+  compete.js         challenge API calls, anonymous player ID, local challenge progress, sharing
   save.js            localStorage progress
+api/                 Vercel functions
+  challenge.js       create a challenge, post a score, read a scoreboard or a player's win record
+  share.js           /c/<id> share page with Open Graph tags, which forwards to the game
+  _lib/              challenge rules and the Redis store (in-memory when there's no database)
 ```
 
 ## Adding a hole
@@ -71,7 +79,11 @@ The name appears in `GAME_NAME` (`src/config.js`), `<title>` in `index.html`, `p
 
 The web build is hosted on Vercel from the GitHub repo. `vercel.json` sets the Vite build, the `dist/` output and the cache headers: hashed files in `assets/` are cached for a year, while `sw.js` and the manifest are checked on every visit.
 
-The service worker loads the page network-first, so players get a new deploy on their next visit, and falls back to the cache when offline. The build stamps the cache name in `dist/sw.js` with a hash of the output (see `vite.config.js`). Each deploy therefore gets a fresh cache, and the old one is deleted.
+The service worker loads the page network-first, so players get a new deploy on their next visit, and falls back to the cache when offline. The build stamps the cache name in `dist/sw.js` with a hash of the output (see `vite.config.js`). Each deploy therefore gets a fresh cache, and the old one is deleted. It never caches `api/` or `/c/` responses.
+
+Compete stores challenges in a free Upstash Redis database in London. The functions run in Vercel's London region (`lhr1`) to sit next to it. Vercel needs `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set as environment variables. Without them, the API answers 503 and the rest of the game still works.
+
+Challenges store a seed plus the reroll each hole settled on, not the hole layouts. If a change to the generator or physics alters generated holes, bump `LEVELS_VERSION` in `src/config.js`. Older challenges then show a "made on an older version" message instead of building different holes.
 
 ## Shipping to app stores
 

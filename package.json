@@ -10,6 +10,7 @@
     "build:artifact": "node scripts/build-artifact.mjs"
   },
   "dependencies": {
+    "@upstash/redis": "^1.39.0",
     "three": "0.160.1"
   },
   "devDependencies": {

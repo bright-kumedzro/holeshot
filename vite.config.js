@@ -22,8 +22,18 @@ function stampServiceWorker() {
   };
 }
 
+// `npm run dev` serves the api/ functions too, backed by the in-memory store.
+const devApi = () => ({
+  name: 'dev-api',
+  async configureServer(server) {
+    const { apiMiddleware } = await import('./scripts/api-dev.mjs');
+    server.middlewares.use((req, res, next) => apiMiddleware(req, res, next).catch(next));
+  },
+});
+
 export default {
   base: './',
+  define: { __COMPETE__: 'true' }, // the single-file artifact build sets this to false: it has no server
   build: { target: 'es2020', chunkSizeWarningLimit: 1200 },
-  plugins: [stampServiceWorker()],
+  plugins: [stampServiceWorker(), devApi()],
 };

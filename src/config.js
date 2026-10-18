@@ -29,6 +29,13 @@ export const DAILY_REWARD = 100;
 export const ENDLESS_BALLS = 5;
 export const SKIP_AFTER = 4;
 
+// Compete: async challenges. Bump LEVELS_VERSION whenever generator or physics changes alter generated holes,
+// so old challenges (which store seeds, not layouts) are no longer offered on new code.
+export const COMPETE_HOLES = 5;
+export const COMPETE_MAX_TRIES = 6;  // a hole not sunk in this many tries scores one more and play moves on
+export const COMPETE_REWARD = 20;
+export const LEVELS_VERSION = 1;
+
 export const WORLDS = [
   {
     id: 'park', name: 'Breezy Park', blurb: 'Spinners, sliders and pegs', floorStyle: 'lawn', friction: 1,

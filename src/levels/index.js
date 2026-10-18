@@ -30,18 +30,38 @@ function endlessSpec(runSeed, n) {
            opts: { seed: (runSeed + n * 7919) >>> 0, pool: W.pool, diff: Math.min(1, 0.15 + n * 0.04), movingHole: W.movingHole || 0 } };
 }
 
+// A challenge hole: each one from a different world, getting harder through the set.
+function competeSpec(seed, n) {
+  const w = (seed + n) % WORLDS.length, W = WORLDS[w];
+  return { meta: { id: `compete-${seed}-${n}`, world: w, palette: W.palettes[n % 2], friction: W.friction, floorStyle: W.floorStyle },
+           opts: { seed: (seed + n * 6151) >>> 0, pool: W.pool, diff: 0.3 + n * 0.08, movingHole: W.movingHole || 0 } };
+}
+
 // ---------- fair generation: reroll the seed until the solver finds a sinking shot ----------
 const fairCache = new Map();
 const pending = new Set();
 const cacheKey = spec => `${spec.opts.seed}|${spec.meta.friction}|${spec.opts.diff}`;
+const rerollSeed = (seed, k) => (seed + k * 104729) >>> 0;
 
 function* fairSearch(spec) {
   for (let k = 0; ; k++) {
-    const def = generate({ ...spec.opts, seed: (spec.opts.seed + k * 104729) >>> 0 });
+    const def = { ...generate({ ...spec.opts, seed: rerollSeed(spec.opts.seed, k) }), reroll: k };
     if (k === 4) return def;
     const sims = yield* shotSearch({ ...def, friction: spec.meta.friction, keys: [] }, 'hole', 300);
     if (sims >= 0) return def;
   }
+}
+
+// Challenges store the reroll each hole settled on, so every device builds identical holes without
+// re-running the solver (floating-point maths can differ in the last digit between browsers).
+export async function prepareChallenge(seed, count) {
+  const ks = [];
+  for (let n = 1; n <= count; n++) ks.push((await runSliced(fairSearch(competeSpec(seed, n)))).reroll);
+  return ks;
+}
+export function competeLevel(seed, n, k) {
+  const spec = competeSpec(seed, n);
+  return finalize(generate({ ...spec.opts, seed: rerollSeed(spec.opts.seed, k) }), spec.meta);
 }
 function remember(key, def) {
   fairCache.set(key, def);

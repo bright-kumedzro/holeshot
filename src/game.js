@@ -1,10 +1,11 @@
 import { View } from './render/view.js';
 import { createWorld, step, poseBody, updateHole, castPath } from './physics.js';
-import { worldLevel, dailyLevel, endlessLevel, dayKey, prefetch, prefetching } from './levels/index.js';
+import { worldLevel, dailyLevel, endlessLevel, competeLevel, dayKey, prefetch, prefetching } from './levels/index.js';
 import { save, persist, resetSave, worldUnlocked, levelKey } from './save.js';
 import { initAudio, applyAudio, suspendAudio, sfx } from './audio.js';
 import * as UI from './ui.js';
-import { R, HOLE_R, HOLES_PER_WORLD, COIN_VALUE, STAR_VALUE, DAILY_REWARD, ENDLESS_BALLS, SKIP_AFTER, WORLDS, PHYS_H, QUALITY } from './config.js';
+import * as Compete from './compete.js';
+import { R, HOLE_R, HOLES_PER_WORLD, COIN_VALUE, STAR_VALUE, DAILY_REWARD, ENDLESS_BALLS, SKIP_AFTER, WORLDS, PHYS_H, QUALITY, COMPETE_HOLES, COMPETE_MAX_TRIES, COMPETE_REWARD } from './config.js';
 
 const view = new View(document.getElementById('stage'));
 const hudEl = document.getElementById('hud');
@@ -78,6 +79,7 @@ function settingsChanged(key) {
 function levelFor(d) {
   if (d.mode === 'world') return worldLevel(d.w, d.i);
   if (d.mode === 'daily') return dailyLevel(d.key);
+  if (d.mode === 'compete') return competeLevel(d.seed, d.n, d.ks[d.n - 1]);
   return endlessLevel(G.run.seed, d.n);
 }
 const coinKey = d => (d.mode === 'world' ? levelKey(d.w, d.i) : d.mode === 'daily' ? `daily-${d.key}` : null);
@@ -128,6 +130,7 @@ function goMenu(screen = 'scrTitle') {
 function startHole(d) {
   UI.showScreen(null); UI.closeModals(); UI.setPlaying(true);
   loadCourse(d);
+  if (d.mode === 'compete') G.attempts = Compete.progress(d.id).tries; // resume mid-hole after leaving
   refreshHud();
   UI.barFill(0); UI.showSkip(false);
   UI.hint(G.def.hint || (G.def.boss ? 'Boss hole: keys stay collected between tries' : ''));
@@ -165,13 +168,17 @@ function refreshHud() {
     UI.hudTrack(label, def.boss ? UI.ICONS.crown : String(d.i + 1), next, { aBoss: def.boss, bBoss: d.i + 1 === last });
   } else if (d.mode === 'daily') {
     UI.hudTrack('Daily hole', String(new Date().getDate()), UI.ICONS.trophy);
+  } else if (d.mode === 'compete') {
+    UI.hudTrack(d.by ? `vs ${d.by}` : 'Your challenge', String(d.n), d.n < COMPETE_HOLES ? String(d.n + 1) : UI.ICONS.trophy);
   } else {
     UI.hudTrack(`Endless · ${WORLDS[def.world].name}`, String(d.n), String(d.n + 1));
   }
+  const compete = d.mode === 'compete';
   UI.hudSub({
-    stars: d.mode === 'endless' ? null : starsFor(G.attempts + 1, !!def.boss),
+    stars: d.mode === 'endless' || compete ? null : starsFor(G.attempts + 1, !!def.boss),
     keys: G.W.keys.length ? { total: G.W.keys.length, got: G.W.keys.filter(k => k.taken).length } : null,
     balls: d.mode === 'endless' ? { left: G.run.balls, max: ENDLESS_BALLS } : null,
+    shots: compete ? Compete.progress(d.id).holes.reduce((a, b) => a + b, 0) + G.attempts : null,
   });
 }
 
@@ -220,6 +227,8 @@ function shoot(dx, dz, power) {
   view.hideAim(); view.squash();
   sfx.hit(power); haptic(12);
   save.stats.shots++;
+  // a challenge shot counts the moment it's taken, so quitting mid-roll can't undo a bad one
+  if (G.desc.mode === 'compete') { Compete.progress(G.desc.id).tries = G.attempts + 1; persist(); }
 }
 
 // ---------- physics events ----------
@@ -266,7 +275,14 @@ function loseBall() {
 
 function afterMiss() {
   refreshHud();
-  UI.hint(`Try ${G.attempts + 1}`);
+  if (G.desc.mode === 'compete') {
+    if (G.attempts >= COMPETE_MAX_TRIES) {
+      UI.hint(`Out of tries: this hole counts as ${COMPETE_MAX_TRIES + 1}`);
+      competeHoleDone(COMPETE_MAX_TRIES + 1);
+      return;
+    }
+    UI.hint(`Try ${G.attempts + 1} of ${COMPETE_MAX_TRIES}`);
+  } else UI.hint(`Try ${G.attempts + 1}`);
   if (G.desc.mode === 'world' && G.attempts >= SKIP_AFTER) UI.showSkip(true);
   tween(0.75, null, () => tween(0.18, t => view.ball.scale.setScalar(Math.max(0.01, 1 - t)), spawnBall));
 }
@@ -345,6 +361,7 @@ function win() {
   refreshHud();
 
   if (d.mode === 'endless') { tween(1.4, null, () => startHole({ mode: 'endless', n: d.n + 1 })); return; }
+  if (d.mode === 'compete') { competeHoleDone(tries); return; }
   const nextLabel = d.mode === 'daily' ? 'Main menu'
     : d.i < HOLES_PER_WORLD - 1 ? 'Next hole'
     : d.w + 1 < WORLDS.length ? `Go to ${WORLDS[d.w + 1].name}` : 'Main menu';
@@ -377,11 +394,96 @@ function startEndless() {
   startHole({ mode: 'endless', n: 1 });
 }
 
+// ---------- compete ----------
+let chToken = 0; // bumped on every navigation, so a slow reply can't redraw a screen the player has left
+const reopen = screen => { if (G.state === 'menu') UI.showScreen(screen); else goMenu(screen); };
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+function competeList() {
+  return Compete.recent().map(([id, rec]) => ({
+    id,
+    title: rec.by ? `${rec.by}’s challenge` : 'Your challenge',
+    status: !Compete.finished(rec) ? `In progress: hole ${rec.holes.length + 1} of ${COMPETE_HOLES}`
+      : rec.sent ? `${sum(rec.holes)} shots · see the scores` : 'Finished · score not sent yet',
+  }));
+}
+
+function openCompete() {
+  reopen('scrCompete');
+  Compete.warmUp();
+  const t = ++chToken;
+  UI.renderCompete(null, competeList());
+  Compete.fetchStats().then(
+    s => { if (t === chToken) UI.renderCompete(s, competeList()); },
+    e => { if (t === chToken) UI.renderCompete({ error: e.message }, competeList()); },
+  );
+}
+
+function needName(fieldId) {
+  if (save.player.name.trim()) return false;
+  UI.toast('Add your name first');
+  document.getElementById(fieldId)?.focus();
+  return true;
+}
+
+let creating = false;
+async function newChallenge() {
+  if (creating) return;
+  if (!save.player.name.trim()) { openCompete(); needName('cmpName'); return; }
+  creating = true;
+  reopen('scrChallenge');
+  const t = ++chToken;
+  UI.renderChallenge({ message: `Setting up ${COMPETE_HOLES} holes…` });
+  try { const ch = await Compete.createChallenge(); if (t === chToken) playChallenge(ch); }
+  catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message }); }
+  finally { creating = false; }
+}
+
+async function openChallenge(id) {
+  reopen('scrChallenge');
+  const t = ++chToken;
+  UI.renderChallenge({ message: 'Loading challenge…' });
+  try {
+    const rec = Compete.progress(id);
+    const view = rec && Compete.finished(rec) && !rec.sent ? await Compete.submitScore(id) : await Compete.fetchChallenge(id);
+    if (t === chToken) UI.renderChallenge({ view, local: Compete.progress(id), playable: Compete.playable(view), link: Compete.link(id) });
+  } catch (e) { if (t === chToken) UI.renderChallenge({ error: e.message, id }); }
+}
+
+function playChallenge(view) {
+  if (needName('chName')) return;
+  const rec = Compete.track(view);
+  if (rec.tries >= COMPETE_MAX_TRIES) { rec.holes.push(COMPETE_MAX_TRIES + 1); rec.tries = 0; persist(); } // left during the last try
+  if (Compete.finished(rec)) { openChallenge(view.id); return; }
+  startHole({ mode: 'compete', id: view.id, seed: view.seed, ks: view.ks, by: view.mine ? null : view.by, n: rec.holes.length + 1 });
+}
+
+// Records the hole straight away (so leaving during the pause loses nothing), then moves on after a beat.
+function competeHoleDone(score) {
+  const d = G.desc, rec = Compete.progress(d.id);
+  rec.holes.push(score); rec.tries = 0;
+  const done = Compete.finished(rec);
+  if (done && !rec.rewarded) {
+    rec.rewarded = true; save.coins += COMPETE_REWARD;
+    UI.setCoins(save.coins, true); UI.toast(`Challenge done: +${COMPETE_REWARD} coins`);
+  }
+  persist();
+  tween(1.4, null, () => (done ? openChallenge(d.id) : startHole({ ...d, n: d.n + 1 })));
+}
+
+async function shareChallenge(view) {
+  const r = await Compete.share(view);
+  if (r === 'copied') UI.toast('Link copied. Paste it to a friend');
+  else if (r === 'failed') UI.toast('Copy the link below to share it');
+}
+
 function pause() {
   if (!playing() || G.state === 'paused') return;
   drag = null; view.hideAim();
   G.pausedFrom = G.state; G.state = 'paused';
-  document.getElementById('btnRestart').textContent = G.desc.mode === 'endless' ? 'New run' : 'Restart hole';
+  const restart = document.getElementById('btnRestart');
+  restart.textContent = G.desc.mode === 'endless' ? 'New run' : 'Restart hole';
+  restart.hidden = G.desc.mode === 'compete'; // tries in a challenge stick; leaving and coming back resumes
   UI.openModal('mdlPause');
 }
 function resume() { if (G.state !== 'paused') return; G.state = G.pausedFrom; UI.closeModals(); }
@@ -467,6 +569,9 @@ export function boot() {
     },
     click: () => sfx.click(),
     starSound: k => sfx.star(k),
+    competeAvailable: Compete.available(),
+    openCompete, newChallenge, openChallenge, playChallenge, shareChallenge,
+    setName: v => { save.player.name = v.slice(0, 16); persist(); },
   });
   UI.setCoins(save.coins);
   view.setSkin(save.equip.ball);
@@ -486,5 +591,8 @@ export function boot() {
   window.addEventListener('resize', fitView);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitView);
   goMenu('scrTitle');
+  // challenge links (/c/<id>) land here as /?challenge=<id>
+  const invite = new URLSearchParams(location.search).get('challenge');
+  if (invite && Compete.available()) { history.replaceState(null, '', location.pathname); openChallenge(invite); }
   requestAnimationFrame(t => { last = t; frame(t); });
 }

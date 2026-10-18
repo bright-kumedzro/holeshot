@@ -122,6 +122,7 @@ svg { display: block; }
 .pot svg { width: 18px; height: 18px; color: var(--gold); filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25)); transition: opacity 0.3s, transform 0.3s; }
 .pot svg.off { opacity: 0.28; transform: scale(0.85); }
 .keys, .balls { display: flex; gap: 4px; align-items: center; }
+.shots { padding: 2px 10px; border-radius: 99px; background: var(--glass); font-weight: 900; font-size: 13px; font-variant-numeric: tabular-nums; }
 .keys svg { width: 20px; height: 20px; color: rgba(255,255,255,0.35); }
 .keys svg.got { color: var(--gold); filter: drop-shadow(0 1px 0 rgba(0,0,0,0.3)); }
 .balls i { width: 13px; height: 13px; border-radius: 50%; background: var(--gold); box-shadow: inset -2px -2px 0 rgba(0,0,0,0.18); }
@@ -217,7 +218,7 @@ svg { display: block; }
 .tagline { margin: 0 0 6px; font-weight: 800; font-size: 16px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
 .btn.play { flex-direction: column; gap: 2px; width: 100%; padding: 16px 24px 14px; border-radius: 26px; font-size: 38px; box-shadow: 0 7px 0 var(--gold-deep); }
 .btn.play small { font-family: var(--font-body); font-weight: 900; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
-.tile-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+.tile-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; width: 100%; } /* one column per visible tile */
 .tile {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 14px 6px 12px; border: 0; border-radius: 20px; cursor: pointer;
@@ -297,6 +298,47 @@ svg { display: block; }
 .settings-foot { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 520px; margin: 26px auto 0; }
 .fine { margin: 0; font-weight: 700; font-size: 13px; opacity: 0.8; text-align: center; }
 
+/* compete */
+.compete { display: flex; flex-direction: column; gap: 14px; max-width: 520px; margin: 0 auto; }
+.compete .btn { width: 100%; }
+.compete .btn.big { padding: 16px 22px; font-size: 24px; }
+.record, .ch-row, .board li, .name-field { background: var(--paper); color: var(--ink); border-radius: 20px; box-shadow: 0 4px 0 var(--paper-deep); }
+.record { padding: 14px 10px; text-align: center; }
+.rec-cells { display: grid; grid-template-columns: repeat(3, 1fr); }
+.rec-cells div + div { border-left: 2px solid var(--switch-off); }
+.rec-cells b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1.05; color: var(--pink); font-variant-numeric: tabular-nums; }
+.rec-cells span { font-weight: 800; font-size: 13px; color: var(--ink-soft); }
+.rec-note { margin: 0; font-weight: 800; font-size: 14px; color: var(--ink-soft); }
+.rec-cells + .rec-note { margin-top: 10px; }
+.name-field { display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 12px; }
+.name-field span { font-weight: 900; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+/* 16px+ text stops iOS zooming on focus; inputs must opt back into selection, which the body turns off */
+.name-field input {
+  border: 0; outline: 0; padding: 2px 0; width: 100%; background: transparent; color: var(--ink);
+  font-family: var(--font-display); font-size: 22px; -webkit-user-select: text; user-select: text;
+}
+.name-field input::placeholder { font-family: var(--font-body); font-weight: 700; font-size: 16px; color: var(--ink-soft); opacity: 0.6; }
+.name-field:focus-within { box-shadow: 0 0 0 3px var(--gold), 0 4px 0 var(--paper-deep); }
+.list-title { margin: 10px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 22px; text-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+.ch-list { display: flex; flex-direction: column; gap: 10px; }
+.ch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; border: 0; padding: 12px 16px; cursor: pointer; text-align: left; }
+.ch-row strong { display: block; font-family: var(--font-display); font-weight: 400; font-size: 19px; }
+.ch-row small { display: block; font-weight: 700; font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+.ch-row svg { width: 20px; height: 20px; flex: none; color: var(--ink-soft); }
+.ch-msg { margin: 24px 0 0; font-weight: 800; font-size: 17px; text-align: center; }
+.ch-head { margin: -6px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1.05; text-shadow: 0 3px 0 rgba(0,0,0,0.2); }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.board li { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.board li.you { box-shadow: 0 0 0 3px var(--gold), 0 4px 0 var(--gold-deep); }
+.board .rank { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--switch-off); font-family: var(--font-display); font-size: 16px; }
+.board li:first-child .rank { background: var(--gold); }
+.board .who { flex: 1; min-width: 0; font-family: var(--font-display); font-size: 19px; overflow-wrap: anywhere; }
+.board .who em { margin-left: 8px; padding: 1px 7px; border-radius: 99px; background: var(--pink); color: var(--paper); font-family: var(--font-body); font-style: normal; font-weight: 900; font-size: 11px; vertical-align: 3px; }
+.board .who small { display: block; font-family: var(--font-body); font-weight: 800; font-size: 12px; color: var(--ink-soft); letter-spacing: 0.04em; }
+.board b { font-family: var(--font-display); font-weight: 400; font-size: 26px; font-variant-numeric: tabular-nums; }
+.ch-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.ch-link { margin: -4px 0 0; font-weight: 800; font-size: 13px; text-align: center; opacity: 0.85; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
+
 /* modals */
 .modal {
   position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--scrim);
@@ -336,6 +378,8 @@ svg { display: block; }
   .hole-btn { font-size: 17px; border-radius: 12px; }
   .scr-head { padding-right: 100px; }
   .hud-spacer { width: 84px; }
+  .tile-row { gap: 8px; }
+  .tile { font-size: 15px; }
 }
 /* phones held sideways in a browser tab (the installed app is locked to portrait) */
 @media (max-height: 500px) {

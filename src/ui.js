@@ -19,10 +19,15 @@ export const ICONS = {
   sound: svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18.3 6.3a8 8 0 0 1 0 11.4"/>'),
   music: svg('<path d="M9 18V6l11-2.5v12"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="17.5" cy="15.5" r="2.5" fill="currentColor"/>'),
   trophy: svg('<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 20h8"/>'),
+  versus: svg('<circle cx="8.5" cy="8" r="3.2"/><path d="M3 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.3A4.6 4.6 0 0 1 21 19"/>'),
+  share: svg('<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M5 12.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/>'),
+  chevron: svg('<path d="M9 5l7 7-7 7"/>'),
 };
 
 const $ = id => document.getElementById(id);
-const SCREENS = ['scrTitle', 'scrLevels', 'scrShop', 'scrSettings'];
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const ordinal = n => n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th');
+const SCREENS = ['scrTitle', 'scrLevels', 'scrShop', 'scrSettings', 'scrCompete', 'scrChallenge'];
 const MODALS = ['mdlPause', 'mdlResult', 'mdlRun'];
 let H = {};
 let shopTab = 'ball';
@@ -38,6 +43,11 @@ export function initUI(handlers) {
   $('btnDaily').onclick = () => H.daily();
   $('btnEndless').onclick = () => H.endless();
   $('btnShop').onclick = () => showScreen('scrShop');
+  $('btnCompete').hidden = !H.competeAvailable;
+  $('btnCompete').onclick = () => H.openCompete();
+  $('btnNewChallenge').onclick = () => H.newChallenge();
+  $('btnChBack').onclick = () => H.openCompete();
+  $('cmpName').oninput = e => H.setName(e.target.value);
   $('btnSettings').onclick = () => showScreen('scrSettings');
   document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => showScreen('scrTitle'); });
   $('tabBall').onclick = () => { shopTab = 'ball'; renderShop(); };
@@ -186,6 +196,66 @@ function renderSettings() {
   }
   list.appendChild(row);
 }
+// ---------- compete ----------
+export function renderCompete(stats, list) {
+  if ($('cmpName').value !== save.player.name) $('cmpName').value = save.player.name; // don't jump the caret mid-typing
+  const cell = (n, label) => `<div><b>${n}</b><span>${label}</span></div>`;
+  const r = $('cmpRecord');
+  if (!stats) r.innerHTML = '<p class="rec-note">Loading your record…</p>';
+  else if (stats.error) r.innerHTML = `<p class="rec-note">${esc(stats.error)}</p>`;
+  else {
+    const { wins, played, waiting } = stats;
+    r.innerHTML = `<div class="rec-cells">${cell(wins, wins === 1 ? 'Win' : 'Wins')}${cell(played, 'Played')}${cell(played ? `${Math.round((100 * wins) / played)}%` : '–', 'Win rate')}</div>`
+      + (waiting ? `<p class="rec-note">${waiting} waiting for someone to play</p>` : '');
+  }
+  const el = $('cmpList');
+  el.innerHTML = list.length ? '' : '<p class="fine">No challenges yet. Start one and send it to a friend.</p>';
+  for (const { id, title, status } of list) {
+    const b = document.createElement('button');
+    b.className = 'ch-row';
+    b.innerHTML = `<span><strong>${esc(title)}</strong><small>${esc(status)}</small></span>${ICONS.chevron}`;
+    b.onclick = () => H.openChallenge(id);
+    el.appendChild(b);
+  }
+}
+
+// state: { message } while loading, { error, id }, or { view, local, playable, link }
+export function renderChallenge(s) {
+  const body = $('chBody');
+  if (s.message) { body.innerHTML = `<p class="ch-msg">${esc(s.message)}</p>`; return; }
+  if (s.error) {
+    body.innerHTML = `<p class="ch-msg">${esc(s.error)}</p>${s.id ? '<button class="btn" id="chRetry">Try again</button>' : ''}`;
+    if (s.id) $('chRetry').onclick = () => H.openChallenge(s.id);
+    return;
+  }
+  const v = s.view, rec = s.local, me = v.players.findIndex(p => p.you), n = v.players.length;
+  const head = me >= 0 ? (n > 1 ? `You’re ${ordinal(me + 1)} of ${n}` : 'You’re on the board')
+    : n ? `Score to beat: ${v.players[0].shots}` : 'Be the first to finish';
+  const rows = v.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="rank">${i + 1}</span>`
+    + `<span class="who">${esc(p.name)}${p.you ? '<em>you</em>' : ''}<small>${p.holes.join(' · ')}</small></span><b>${p.shots}</b></li>`).join('');
+  let actions = '';
+  if (me >= 0) {
+    actions = `<button class="btn" id="chShare" data-icon="share"><span>Send to a friend</span></button>`
+      + `<p class="ch-link">${esc(s.link)}</p>`
+      + (n < 2 ? '<p class="fine">It counts as a game once someone else finishes it.</p>' : '')
+      + '<button class="btn white" id="chNew">New challenge</button>';
+  } else if (!s.playable) {
+    actions = '<p class="fine">This challenge was made on an older version of Holeshot, so its holes can’t be rebuilt. Start a new one!</p><button class="btn" id="chNew">New challenge</button>';
+  } else {
+    const label = rec?.sent === false && rec.holes.length >= v.holes ? `Send my score (${rec.holes.reduce((a, b) => a + b, 0)} shots)`
+      : rec?.holes.length ? `Continue: hole ${rec.holes.length + 1} of ${v.holes}` : `Play the ${v.holes} holes`;
+    actions = (save.player.name ? '' : `<label class="name-field"><span>Your name</span><input id="chName" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Shown on the scoreboard"></label>`)
+      + `<button class="btn big" id="chPlay">${label}</button>`;
+  }
+  body.innerHTML = `<p class="eyebrow">${v.mine ? 'Your challenge' : `${esc(v.by)}’s challenge`} · ${v.holes} holes</p><h3 class="ch-head">${head}</h3>`
+    + (n ? `<ol class="board">${rows}</ol>` : '<p class="fine">Nobody has finished yet.</p>') + `<div class="ch-actions">${actions}</div>`;
+  body.querySelectorAll('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', ICONS[el.dataset.icon]));
+  if ($('chName')) $('chName').oninput = e => H.setName(e.target.value);
+  if ($('chPlay')) $('chPlay').onclick = () => H.playChallenge(v);
+  if ($('chShare')) $('chShare').onclick = () => H.shareChallenge(v);
+  if ($('chNew')) $('chNew').onclick = () => H.newChallenge();
+}
+
 function renderPauseQuick() {
   const q = $('pauseQuick');
   q.innerHTML = '';
@@ -209,8 +279,9 @@ export function barFill(pct) {
   if (pct === 0) { f.style.transition = 'none'; f.style.width = '0%'; void f.offsetWidth; f.style.transition = ''; }
   else f.style.width = pct + '%';
 }
-export function hudSub({ stars = null, keys = null, balls = null }) {
+export function hudSub({ stars = null, keys = null, balls = null, shots = null }) {
   let html = '';
+  if (shots != null) html += `<span class="shots">${shots} shot${shots === 1 ? '' : 's'}</span>`;
   if (stars != null) html += `<span class="pot" aria-label="${stars} stars available">${[0, 1, 2].map(k => ICONS.star.replace('<svg', `<svg class="${k < stars ? '' : 'off'}"`)).join('')}</span>`;
   if (keys) html += `<span class="keys" aria-label="${keys.got} of ${keys.total} keys">${Array.from({ length: keys.total }, (_, k) => ICONS.key.replace('<svg', `<svg class="${k < keys.got ? 'got' : ''}"`)).join('')}</span>`;
   if (balls) html += `<span class="balls" aria-label="${balls.left} balls left">${Array.from({ length: balls.max }, (_, k) => `<i class="${k < balls.left ? '' : 'off'}"></i>`).join('')}</span>`;
