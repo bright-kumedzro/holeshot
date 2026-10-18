@@ -33,7 +33,8 @@ const devApi = () => ({
 
 export default {
   base: './',
-  define: { __COMPETE__: 'true' }, // the single-file artifact build sets this to false: it has no server
+  // the single-file artifact build sets these to false: it has no server and may only load scripts from approved CDNs
+  define: { __COMPETE__: 'true', __YOUTUBE__: 'true' },
   build: { target: 'es2020', chunkSizeWarningLimit: 1200 },
   plugins: [stampServiceWorker(), devApi()],
 };

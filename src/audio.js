@@ -15,18 +15,71 @@ export function initAudio() {
     applyAudio();
   }
   if (ac.state !== 'running') ac.resume(); // 'suspended', or 'interrupted' on iOS after a call or app switch
+  if (file?.el.paused && !document.hidden) file.el.play().catch(() => {}); // a play() refused before the first real tap
 }
 
 export function applyAudio() {
+  // with music off, 'ambient' lets iOS keep the player's own music (Spotify etc.) going under the sound effects
+  if (navigator.audioSession) navigator.audioSession.type = save.settings.music ? 'auto' : 'ambient';
   if (!ac) return;
   sfxBus.gain.value = save.settings.sound ? 1 : 0;
   musicBus.gain.setTargetAtTime(save.settings.music ? 0.45 : 0, ac.currentTime, 0.4);
-  if (save.settings.music) startMusic(); else stopMusic();
+  const id = currentTrack();
+  if (!save.settings.music) { stopMusic(); playFile(null); }
+  else if (id === 'theme') { playFile(null); startMusic(); }
+  else if (external.some(c => c.id === id)) { stopMusic(); playFile(null); }
+  else { stopMusic(); playFile(id); }
 }
 
 export function suspendAudio(hidden) {
   if (!ac) return;
-  if (hidden) ac.suspend(); else ac.resume();
+  if (hidden) { ac.suspend(); file?.el.pause(); }
+  else { ac.resume(); file?.el.play().catch(() => {}); }
+}
+
+// ---------- music tracks: the built-in theme, plus files listed in public/music/tracks.json ----------
+let tracks = [], file = null; // file: { id, el, gain } for the track that's playing
+const FILE_VOL = 0.55;        // on top of the music bus; downloaded tracks are mastered far louder than the theme
+
+export async function loadTracks() {
+  try {
+    const res = await fetch('./music/tracks.json', { cache: 'no-cache' });
+    const list = res.ok ? await res.json() : [];
+    tracks = list.filter(t => t && typeof t.file === 'string' && t.title);
+  } catch { tracks = []; } // offline, or the single-file build: the theme still plays
+  return tracks;
+}
+// Sources played outside WebAudio (YouTube); while one is chosen, the game's own music stays quiet.
+let external = [];
+export function setExternalChoices(list) { external = list; }
+export const musicChoices = () => [
+  { id: 'off', name: 'Off (play your own)' },
+  { id: 'theme', name: 'Holeshot theme' },
+  ...tracks.map(t => ({ id: t.file, name: t.artist ? `${t.title} · ${t.artist}` : t.title })),
+  ...external,
+];
+const currentTrack = () => {
+  const id = save.settings.track;
+  return tracks.some(t => t.file === id) || external.some(c => c.id === id) ? id : 'theme';
+};
+export const musicChoice = () => (save.settings.music ? currentTrack() : 'off');
+
+function playFile(id) {
+  if (file?.id === id) return;
+  const t = ac.currentTime;
+  if (file) { // fade out, then let the element go
+    const old = file;
+    old.gain.gain.setTargetAtTime(0, t, 0.25);
+    setTimeout(() => { old.el.pause(); old.el.removeAttribute('src'); old.el.load(); old.gain.disconnect(); }, 1200);
+    file = null;
+  }
+  if (!id) return;
+  const el = new Audio(`./music/${encodeURIComponent(id)}`), gain = ac.createGain();
+  el.loop = true; el.preload = 'auto';
+  ac.createMediaElementSource(el).connect(gain); gain.connect(musicBus);
+  gain.gain.setValueAtTime(0, t); gain.gain.setTargetAtTime(FILE_VOL, t + 0.15, 0.35);
+  el.play().catch(() => {}); // blocked until the first tap; initAudio runs applyAudio again then
+  file = { id, el, gain };
 }
 
 function tone(freq, dur, type = 'sine', vol = 0.2, slideTo = null, delay = 0, bus = sfxBus) {

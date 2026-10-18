@@ -6,6 +6,7 @@ A 3D one-shot ball-into-hole game for the browser and phones. Drag back anywhere
 - **Mechanics**: spinners, sliders, gates, pegs, triangle bumpers, pop bumpers, sand, ice, water and lava hazards, conveyor belts, boost pads, portals and moving holes.
 - **Progression**: 1–3 stars per hole, coins on the course, a shop with 12 ball skins and 6 trails, a daily hole with a streak reward, and an endless mode with lives.
 - **Compete**: start a 5-hole challenge, send the link, and whoever takes the fewest shots wins. No accounts: players type a nickname, and each device keeps an anonymous ID with a record of wins out of games played.
+- **Music**: players pick from the built-in synthesised theme, tracks from Pixabay, a YouTube video or playlist, or Off (play your own). They can switch from Settings or mid-hole from the pause menu.
 - **Feel**: slow motion when the ball drops, "Ooh!" near misses, camera shake, particles, synthesised sound and music, vibration, and a bounce preview.
 
 ## Run it
@@ -70,6 +71,20 @@ Edit `src/levels/handmade.js`. Coordinates are in world units: `x` runs across t
 ```
 
 Then run `node scripts/check-levels.mjs` to confirm the hole can be sunk.
+
+## Adding music
+
+Download a track from [Pixabay Music](https://pixabay.com/music/). Its licence allows use in a game without payment or credit, but tracks can't be redistributed on their own. Put the MP3 in `public/music/` and add it to `public/music/tracks.json`:
+
+```json
+[
+  { "file": "sunny-arcade.mp3", "title": "Sunny Arcade", "artist": "Artist Name" }
+]
+```
+
+It then appears in the picker; no code changes are needed. Tracks stream and loop, and switching between them crossfades. Keep the file names stable: MP3s are cached for 30 days. The offline cache skips music, so offline players hear the built-in theme.
+
+**YouTube:** players paste a video or playlist link. YouTube's embed terms require the player to stay visible at 200×200 px or more with nothing covering it. So it docks at the bottom of the screen (bottom right on wide screens), and on portrait screens the course is fitted above it. The player loads from `youtube-nocookie.com`. The single-file artifact leaves YouTube and Compete out (`__YOUTUBE__` and `__COMPETE__` in `scripts/build-artifact.mjs`).
 
 ## Renaming
 

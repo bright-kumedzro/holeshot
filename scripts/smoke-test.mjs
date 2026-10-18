@@ -13,11 +13,25 @@ const serveStatic = async (req, res) => {
   try { res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream' }); res.end(await readFile(path)); }
   catch { res.writeHead(404); res.end(); }
 };
-const server = createServer((req, res) => apiMiddleware(req, res, () => serveStatic(req, res))).listen(4789);
+// Music fixtures: a one-track list and a generated one-second tone, so the picker can be tested without real tracks.
+function toneWav(sec = 1, rate = 8000) {
+  const n = sec * rate, b = Buffer.alloc(44 + n * 2);
+  b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16);
+  b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate * 2, 28);
+  b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin((i / rate) * 2 * Math.PI * 440) * 8000), 44 + i * 2);
+  return b;
+}
+const musicFixture = (req, res) => {
+  if (req.url.startsWith('/music/tracks.json')) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify([{ file: 'smoke-test.wav', title: 'Smoke Test', artist: 'Holeshot' }])); return true; }
+  if (req.url.startsWith('/music/smoke-test.wav')) { res.writeHead(200, { 'content-type': 'audio/wav' }); res.end(toneWav()); return true; }
+  return false;
+};
+const server = createServer((req, res) => { if (!musicFixture(req, res)) apiMiddleware(req, res, () => serveStatic(req, res)); }).listen(4789);
 const api = async body => (await fetch('http://localhost:4789/api/challenge', { method: 'POST', body: JSON.stringify(body) })).json();
 
 await mkdir('artifact/shots', { recursive: true });
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const errors = [];
 const run = async (name, viewport) => {
   const page = await browser.newPage();
@@ -152,6 +166,41 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
   if (invite.head !== 'Score to beat: 9' || result.head !== 'You’re 1st of 3' || result.rows !== 3) errors.push('[compete] challenge board is wrong');
   if (!/^1\s*Win1\s*Played100%/.test(record.replace(/\s+/g, ''))) errors.push(`[compete] record is wrong: ${record}`);
   await ctxA.close(); await ctxB.close();
+}
+
+// Music: a listed track streams when picked; a YouTube link docks the player and holes are fitted above it.
+{
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const p = await browser.newPage();
+  // YouTube's own iframe logs its own noise (ads, tracking); only the game's errors count here
+  p.on('console', m => { if (m.type() === 'error' && !/youtube|google|doubleclick|ggpht|ytimg/.test(m.location()?.url || '')) errors.push(`[music] ${m.text()}`); });
+  p.on('pageerror', e => errors.push(`[music] ${e.message}`));
+  await p.setViewport({ width: 390, height: 844, isMobile: true });
+  await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
+  await p.click('#btnSettings'); await wait(400);
+  const options = await p.$$eval('#settingsList select option', os => os.map(o => o.textContent));
+  await p.select('#settingsList select', 'smoke-test.wav'); await wait(1500);
+  const streamed = await p.evaluate(() => performance.getEntriesByType('resource').some(e => e.name.includes('/music/smoke-test.wav')));
+  await p.select('#settingsList select', 'youtube'); await wait(300);
+  await p.type('.yt-field input', 'https://youtu.be/M7lc1UVf-VE?si=abc'); // YouTube's own IFrame API demo video
+  await p.click('.yt-field .btn');
+  await p.waitForFunction(() => document.querySelector('#ytDock:not([hidden]) iframe'), { timeout: 30000 }).catch(() => {});
+  await wait(1500);
+  const yt = await p.evaluate(() => ({ docked: !document.getElementById('ytDock').hidden, iframe: document.querySelector('#ytDock iframe')?.src.split('?')[0] || null }));
+  await p.screenshot({ path: 'artifact/shots/music-1-settings.png' });
+  await p.evaluate(() => { document.querySelector('#scrSettings [data-back]').click(); document.getElementById('btnPlay').click(); });
+  await wait(1800);
+  await p.screenshot({ path: 'artifact/shots/music-2-hole-dock.png' });
+  await p.evaluate(() => document.getElementById('btnPause').click()); await wait(400);
+  await p.screenshot({ path: 'artifact/shots/music-3-pause.png' });
+  await p.click('#btnYtClose'); await wait(400);
+  const closed = await p.evaluate(() => document.getElementById('ytDock').hidden && !document.body.classList.contains('yt-on'));
+  console.log('music', JSON.stringify({ options, streamed, yt, closed }));
+  if (!options.includes('Smoke Test · Holeshot') || !options.includes('YouTube video or playlist')) errors.push('[music] picker is missing choices');
+  if (!streamed) errors.push('[music] picking a track did not stream it');
+  if (!yt.docked || !/youtube(-nocookie)?\.com\/embed\/M7lc1UVf-VE/.test(yt.iframe || '')) errors.push(`[music] YouTube did not dock: ${JSON.stringify(yt)}`);
+  if (!closed) errors.push('[music] closing the dock did not stop YouTube');
+  await p.close();
 }
 
 // Offline: once the service worker controls the page, a reload with no network must still open the game.

@@ -16,7 +16,8 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin === location.origin && /^\/(api|c)\//.test(url.pathname)) return; // live scores and share pages: never cached
+  // live scores and share pages are never cached; music streams with range requests, which Safari can't play from here
+  if (url.origin === location.origin && /^\/(api|c|music)\//.test(url.pathname)) return;
   if (req.mode === 'navigate') { e.respondWith(networkFirst(req)); return; }
   const cacheable = url.origin === location.origin || url.hostname.endsWith('fonts.googleapis.com') || url.hostname.endsWith('fonts.gstatic.com');
   if (!cacheable) return;

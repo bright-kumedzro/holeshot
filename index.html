@@ -47,6 +47,11 @@
 <div class="hand" id="hand" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 <div class="fps" id="fps" hidden></div>
+<!-- YouTube music: its embed terms need a visible player of at least 200x200, so it docks instead of hiding -->
+<div class="yt-dock" id="ytDock" hidden>
+  <div class="yt-bar"><span>Music from YouTube</span><button class="yt-close" id="btnYtClose" aria-label="Stop YouTube music">✕</button></div>
+  <div id="ytPlayer"></div>
+</div>
 
 <div class="foot" id="foot" hidden>
   <p class="hint" id="hint"></p>

@@ -9,7 +9,7 @@ const defaults = () => ({
   coinsTaken: {},   // level id -> bitmask of coins already collected
   owned: { ball: ['classic'], trail: ['none'] },
   equip: { ball: 'classic', trail: 'none' },
-  settings: { sound: true, music: true, haptics: true, preview: true, graphics: 'auto', fps: false },
+  settings: { sound: true, music: true, haptics: true, preview: true, graphics: 'auto', fps: false, track: 'theme', youtube: '' },
   autoQuality: 0,   // QUALITY tier that auto mode settled on for this device
   daily: { last: '', streak: 0, done: {} },
   endlessBest: 0,

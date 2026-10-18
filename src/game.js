@@ -2,7 +2,8 @@ import { View } from './render/view.js';
 import { createWorld, step, poseBody, updateHole, castPath } from './physics.js';
 import { worldLevel, dailyLevel, endlessLevel, competeLevel, dayKey, prefetch, prefetching } from './levels/index.js';
 import { save, persist, resetSave, worldUnlocked, levelKey } from './save.js';
-import { initAudio, applyAudio, suspendAudio, sfx } from './audio.js';
+import { initAudio, applyAudio, suspendAudio, sfx, loadTracks, musicChoices, musicChoice, setExternalChoices } from './audio.js';
+import * as YouTube from './youtube.js';
 import * as UI from './ui.js';
 import * as Compete from './compete.js';
 import { R, HOLE_R, HOLES_PER_WORLD, COIN_VALUE, STAR_VALUE, DAILY_REWARD, ENDLESS_BALLS, SKIP_AFTER, WORLDS, PHYS_H, QUALITY, COMPETE_HOLES, COMPETE_MAX_TRIES, COMPETE_REWARD } from './config.js';
@@ -72,7 +73,7 @@ function meterFps(now) {
 function settingsChanged(key) {
   if (key === 'graphics') { if (save.settings.graphics === 'auto') { save.autoQuality = 0; persist(); } applyQuality(); }
   if (key === 'fps') { perf.fpsFrames = 0; perf.fpsSince = performance.now(); UI.fps(save.settings.fps ? '…' : null); }
-  applyAudio();
+  applyMusic();
 }
 
 // ---------- level loading ----------
@@ -86,7 +87,30 @@ const coinKey = d => (d.mode === 'world' ? levelKey(d.w, d.i) : d.mode === 'dail
 
 function fitView() {
   const top = hudEl.hidden ? 76 : Math.max(76, hudEl.getBoundingClientRect().bottom + 10);
-  view.fit(G.W, top, 70);
+  // on portrait screens the YouTube dock sits under the course, so the course is fitted above it
+  const dockTop = YouTube.docked() && innerWidth < innerHeight ? document.getElementById('ytDock').getBoundingClientRect().top : innerHeight;
+  view.fit(G.W, top, Math.max(70, innerHeight - dockTop + 10));
+}
+
+// ---------- music: off, the built-in theme, Pixabay tracks, or a YouTube link ----------
+let ytLink = ''; // the link the dock is playing, so re-applying settings doesn't restart it
+function applyMusic() {
+  applyAudio();
+  const link = musicChoice() === 'youtube' && YouTube.parse(save.settings.youtube) ? save.settings.youtube : '';
+  if (link === ytLink) return;
+  ytLink = link;
+  if (link) YouTube.play(YouTube.parse(link)).catch(e => { ytLink = ''; UI.toast(e.message); });
+  else YouTube.stop();
+}
+function setMusic(id) {
+  save.settings.music = id !== 'off';
+  if (id !== 'off') save.settings.track = id;
+  persist(); initAudio(); applyMusic(); UI.refreshMusic();
+}
+function playYouTube(text) {
+  if (!YouTube.parse(text)) { UI.toast('That doesn’t look like a YouTube link'); return; }
+  save.settings.youtube = text.trim();
+  setMusic('youtube');
 }
 
 function loadCourse(d) {
@@ -563,7 +587,7 @@ export function boot() {
     resetProgress: () => {
       resetSave();
       view.setSkin(save.equip.ball); view.setTrail(save.equip.trail);
-      UI.setCoins(save.coins); applyAudio(); applyQuality(); UI.fps(null);
+      UI.setCoins(save.coins); applyMusic(); applyQuality(); UI.fps(null);
       UI.toast('Progress erased');
       goMenu('scrTitle');
     },
@@ -572,7 +596,11 @@ export function boot() {
     competeAvailable: Compete.available(),
     openCompete, newChallenge, openChallenge, playChallenge, shareChallenge,
     setName: v => { save.player.name = v.slice(0, 16); persist(); },
+    musicChoices, musicChoice, setMusic, playYouTube,
   });
+  setExternalChoices(YouTube.available() ? [{ id: 'youtube', name: 'YouTube video or playlist' }] : []);
+  YouTube.onDockChange(fitView);
+  loadTracks().then(() => { applyMusic(); UI.refreshMusic(); });
   UI.setCoins(save.coins);
   view.setSkin(save.equip.ball);
   view.setTrail(save.equip.trail);

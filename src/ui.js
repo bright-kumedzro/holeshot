@@ -48,6 +48,7 @@ export function initUI(handlers) {
   $('btnNewChallenge').onclick = () => H.newChallenge();
   $('btnChBack').onclick = () => H.openCompete();
   $('cmpName').oninput = e => H.setName(e.target.value);
+  $('btnYtClose').onclick = () => H.setMusic('theme');
   $('btnSettings').onclick = () => showScreen('scrSettings');
   document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => showScreen('scrTitle'); });
   $('tabBall').onclick = () => { shopTab = 'ball'; renderShop(); };
@@ -163,7 +164,6 @@ export function renderShop() {
 
 const TOGGLES = [
   { key: 'sound', label: 'Sound effects' },
-  { key: 'music', label: 'Music' },
   { key: 'haptics', label: 'Vibration', desc: navigator.vibrate ? 'On phones that support it' : 'This browser can’t vibrate' },
   { key: 'preview', label: 'Bounce preview', desc: 'Show where the ball will bounce off walls' },
   { key: 'fps', label: 'Show frame rate', desc: 'A small counter in the corner' },
@@ -183,6 +183,14 @@ function renderSettings() {
     b.innerHTML = `<span><strong>${t.label}</strong>${t.desc ? `<small>${t.desc}</small>` : ''}</span><span class="switch"></span>`;
     b.onclick = () => set(t.key, !save.settings[t.key]);
     list.appendChild(b);
+    if (t.key === 'sound') {
+      const m = document.createElement('div');
+      m.className = 'choice-row';
+      m.innerHTML = `<span><strong id="musicLabel">Music</strong><small>${H.musicChoices().length > 2 ? 'Tracks from Pixabay' : 'Change it any time from the pause menu'}</small></span>`;
+      m.appendChild(musicPicker('musicLabel'));
+      list.appendChild(m);
+      if (H.musicChoice() === 'youtube') list.appendChild(youtubeField());
+    }
   }
   const cur = GRAPHICS.find(g => g.id === save.settings.graphics) || GRAPHICS[0];
   const row = document.createElement('div');
@@ -256,16 +264,42 @@ export function renderChallenge(s) {
   if ($('chNew')) $('chNew').onclick = () => H.newChallenge();
 }
 
+// A native select: on phones it opens the system picker, which beats any custom list for thumbs.
+function musicPicker(labelId) {
+  const wrap = document.createElement('span');
+  wrap.className = 'music-pick';
+  wrap.innerHTML = ICONS.music;
+  const sel = document.createElement('select');
+  if (labelId) sel.setAttribute('aria-labelledby', labelId); else sel.setAttribute('aria-label', 'Music');
+  for (const c of H.musicChoices()) sel.add(new Option(c.name, c.id));
+  sel.value = H.musicChoice();
+  sel.onchange = () => H.setMusic(sel.value);
+  wrap.appendChild(sel);
+  return wrap;
+}
 function renderPauseQuick() {
   const q = $('pauseQuick');
   q.innerHTML = '';
-  for (const [key, icon, label] of [['sound', 'sound', 'Sound effects'], ['music', 'music', 'Music']]) {
-    const b = document.createElement('button');
-    b.className = 'icon-btn'; b.innerHTML = ICONS[icon];
-    b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', String(!!save.settings[key]));
-    b.onclick = () => { save.settings[key] = !save.settings[key]; persist(); H.settingsChanged(); renderPauseQuick(); };
-    q.appendChild(b);
-  }
+  const b = document.createElement('button');
+  b.className = 'icon-btn'; b.innerHTML = ICONS.sound;
+  b.setAttribute('aria-label', 'Sound effects'); b.setAttribute('aria-pressed', String(!!save.settings.sound));
+  b.onclick = () => { save.settings.sound = !save.settings.sound; persist(); H.settingsChanged(); renderPauseQuick(); };
+  q.append(b, musicPicker());
+  if (H.musicChoice() === 'youtube') q.appendChild(youtubeField());
+}
+function youtubeField() {
+  const f = document.createElement('form');
+  f.className = 'yt-field';
+  f.innerHTML = '<input type="url" inputmode="url" enterkeyhint="go" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube video or playlist link"><button class="btn" type="submit">Play</button>';
+  const input = f.querySelector('input');
+  input.value = save.settings.youtube || '';
+  f.onsubmit = e => { e.preventDefault(); input.blur(); H.playYouTube(input.value); };
+  return f;
+}
+// Redraws whichever music pickers are on screen (settings, pause menu) after the choice or track list changes.
+export function refreshMusic() {
+  if (!$('scrSettings').hidden) renderSettings();
+  if (!$('mdlPause').hidden) renderPauseQuick();
 }
 
 // ---------- HUD ----------
