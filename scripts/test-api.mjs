@@ -1,6 +1,8 @@
-// Exercises the challenge API against the in-memory store. Usage: node scripts/test-api.mjs
+// Exercises the challenge and stats APIs against the in-memory store. Usage: node scripts/test-api.mjs
 import { GET, POST } from '../api/challenge.js';
 import { GET as share } from '../api/share.js';
+import * as statsApi from '../api/stats.js';
+import { periods } from '../src/periods.js';
 
 let failed = 0;
 const ok = (cond, label) => { console.log(`${cond ? ' ok ' : 'FAIL'}  ${label}`); if (!cond) failed++; };
@@ -70,6 +72,27 @@ stats = (await call('GET', `?stats=${A}`)).data;
 ok(stats.played === 0 && stats.waiting === 0, 'forgetting clears your record');
 await call('POST', '', { action: 'forget', p: D, ids: [] }); // Yaw's device sends no ids: found through his record list
 ok(!(await call('GET', `?id=${id}&p=${B}`)).data.players.some(p => p.name === 'Yaw'), 'forget finds challenges through the record list');
+
+// anonymous play counts: the first read adds up the challenges already made, then reports and events add to totals
+const statsCall = async (method, q = '', body) => {
+  const res = await statsApi[method](new Request(`http://x/api/stats${q}`, body ? { method, body: JSON.stringify(body) } : { method }));
+  return { status: res.status, data: await res.json() };
+};
+let st = (await statsCall('GET')).data;
+ok(st.challenges === 1 && st.finishes === 2 && st.players === 0, 'first read counts the challenges already made');
+ok((await statsCall('GET')).data.challenges === 1, 'and only once');
+await statsCall('POST', '', { first: true, day: true, week: true, month: true, holes: 12, shots: 30 });
+await statsCall('POST', '', { first: false, day: true, week: false, month: false, holes: 2, shots: 3 });
+await statsCall('POST', '', { first: 'yes', holes: -5, shots: 1e9 });
+ok((await statsCall('POST', '', 'nonsense')).status === 200, 'a malformed report is ignored');
+st = (await statsCall('GET', '?days=3')).data;
+ok(st.players === 1 && st.activeToday === 2 && st.activeWeek === 1 && st.activeMonth === 1, 'reports add to players and actives');
+ok(st.holes === 14 && st.shots === 33 + 10000, 'hole and shot counts add up, capped per report');
+ok(st.days.length === 3 && st.days[2].day === periods().day && st.days[2].new === 1 && st.days[2].active === 2, 'daily rows end today');
+ok(st.days[2].holes === 2 && st.days[2].shots === 3 + 10000, 'a first report’s lifetime counts stay out of the daily rows');
+await call('POST', '', { action: 'create', name: 'Kojo', p: 'kkkkkkkkkkkkkkkkkkkk', v: 1, seed: 7, ks });
+ok((await statsCall('GET')).data.challenges === 2, 'new challenges are counted as they are made');
+ok(periods(Date.UTC(2026, 0, 1)).week === '2026-W01' && periods(Date.UTC(2027, 0, 1)).week === '2026-W53' && periods(Date.UTC(2026, 9, 18)).week === '2026-W42', 'ISO weeks');
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAPI checks pass');
 process.exit(failed ? 1 : 0);

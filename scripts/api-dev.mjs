@@ -2,8 +2,9 @@
 // including the /c/:id rewrite from vercel.json. Without Upstash env vars they use the in-memory store.
 import * as challenge from '../api/challenge.js';
 import * as share from '../api/share.js';
+import * as stats from '../api/stats.js';
 
-const routes = { '/api/challenge': challenge, '/api/share': share };
+const routes = { '/api/challenge': challenge, '/api/share': share, '/api/stats': stats };
 const readBody = req => new Promise(r => { let s = ''; req.on('data', c => { s += c; }); req.on('end', () => r(s)); });
 
 export async function apiMiddleware(req, res, next) {

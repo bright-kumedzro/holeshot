@@ -16,6 +16,7 @@ const defaults = () => ({
   player: { id: '', name: '' }, // anonymous compete identity, per device
   challenges: {},   // challenge id -> { by, at, holes: [shots per finished hole], tries, sent, rewarded }
   stats: { shots: 0, holes: 0, aces: 0 },
+  metrics: { counted: false, day: '', week: '', month: '', sent: { holes: 0, shots: 0 } }, // last anonymous report (metrics.js)
 });
 
 function merge(a, b) {
@@ -41,9 +42,10 @@ export function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* ignore */ }
 }
 
-// Keeps the compete identity and challenge progress: they belong to a server-side record, not the campaign.
+// Keeps the compete identity and challenge progress: they belong to a server-side record, not the campaign. Also
+// keeps whether this device has been counted, so a reset isn't a new player; shot and hole counts start again from 0.
 export function resetSave() {
-  const keep = { player: save.player, challenges: save.challenges };
+  const keep = { player: save.player, challenges: save.challenges, metrics: { ...save.metrics, sent: { holes: 0, shots: 0 } } };
   for (const k of Object.keys(save)) delete save[k];
   Object.assign(save, defaults(), keep);
   persist();

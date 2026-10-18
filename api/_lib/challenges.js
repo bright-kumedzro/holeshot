@@ -1,4 +1,5 @@
 import { COMPETE_HOLES, COMPETE_MAX_TRIES } from '../../src/config.js';
+import { count } from './stats.js';
 
 // Data model: hash ch:<id> holds `meta`, a `j:<playerId>` field per player who accepted (started playing) and a
 // `p:<playerId>` field per player who finished (both HSETNX, so a player can only post once and simultaneous posts
@@ -71,6 +72,7 @@ export async function createChallenge(db, { name, p, v, seed, ks }) {
     const id = newId();
     if (await db.hsetnx(`ch:${id}`, 'meta', meta)) {
       await db.expire(`ch:${id}`, TTL);
+      await count(db, 'challenges');
       return present(id, { meta }, p);
     }
   }
@@ -107,6 +109,7 @@ export async function submitScore(db, { id, name, p, holes }) {
       await db.lpush(`pl:${p}`, id);
       await db.ltrim(`pl:${p}`, 0, RECORD_SIZE - 1);
       await db.expire(`pl:${p}`, TTL);
+      await count(db, 'finishes');
     }
   }
   return viewChallenge(db, id, p);

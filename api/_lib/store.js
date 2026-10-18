@@ -21,6 +21,16 @@ const memory = {
     return 1;
   },
   async hlen(k) { return mem.get(k)?.size || 0; },
+  async hincrby(k, f, by) {
+    if (!mem.has(k)) mem.set(k, new Map());
+    const h = mem.get(k), v = (Number(h.get(f)) || 0) + by;
+    h.set(f, v);
+    return v;
+  },
+  async scan(_, { match }) { // one pass; only trailing-* patterns
+    const prefix = match.replace(/\*$/, '');
+    return ['0', [...mem.keys()].filter(k => k.startsWith(prefix))];
+  },
   async hdel(k, ...fs) { const h = mem.get(k); let n = 0; for (const f of fs) n += h?.delete(f) ? 1 : 0; return n; },
   async del(k) { return mem.delete(k) ? 1 : 0; },
   async expire() { return 1; },

@@ -7,6 +7,7 @@ import * as YouTube from './youtube.js';
 import { showFatal } from './fatal.js';
 import * as UI from './ui.js';
 import * as Compete from './compete.js';
+import * as Metrics from './metrics.js';
 import { R, HOLE_R, HOLES_PER_WORLD, COIN_VALUE, STAR_VALUE, DAILY_REWARD, ENDLESS_BALLS, SKIP_AFTER, WORLDS, PHYS_H, QUALITY, COMPETE_HOLES, COMPETE_MAX_TRIES, COMPETE_REWARD } from './config.js';
 
 const view = new View(document.getElementById('stage'));
@@ -687,6 +688,7 @@ export function boot() {
   document.addEventListener('visibilitychange', () => {
     suspendAudio(document.hidden);
     if (document.hidden && (G.state === 'aim' || G.state === 'roll')) pause();
+    Metrics.flush(document.hidden);
   });
   window.addEventListener('resize', fitView);
   // phones can drop the WebGL context after the game sits in the background; a reload is the reliable way back
@@ -694,6 +696,7 @@ export function boot() {
   view.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); showFatal('lost'); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitView);
   goMenu('scrTitle');
+  Metrics.flush();
   // The smoke test sinks holes through this (a shot counts, then the ball drops in). Only with #autotest in the URL;
   // it gives nothing a cheater couldn't already do by posting a score to the API directly.
   if (location.hash === '#autotest') {

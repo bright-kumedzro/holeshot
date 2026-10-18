@@ -308,12 +308,15 @@ await run('landscape', { width: 844, height: 390, deviceScaleFactor: 1, isMobile
     await p.screenshot({ path: `artifact/shots/page-${name}.png`, fullPage: true });
   }
   pages.credits = await p.goto('http://localhost:4789/about', { waitUntil: 'networkidle0' }).then(() => p.$$eval('#credits li', ls => ls.map(l => l.textContent)));
+  // the games above all ran in one browser profile, so they count as one player
+  pages.stats = await p.$eval('#stats', s => (s.hidden ? null : s.querySelector('[data-k="players"]').textContent));
   await p.goto('http://localhost:4789/', { waitUntil: 'networkidle0' });
   await p.click('#btnSettings'); await new Promise(r => setTimeout(r, 300));
   pages.links = await p.$$eval('.page-links a', as => as.map(a => a.getAttribute('href')));
   console.log('pages', JSON.stringify(pages));
   if (pages.about.status !== 200 || pages.privacy.status !== 200 || pages.privacy.sections < 5) errors.push('[pages] a page did not load');
   if (pages.credits[0] !== 'Smoke Test by Holeshot') errors.push(`[pages] About credits wrong: ${pages.credits}`);
+  if (pages.stats !== '1') errors.push(`[pages] About stats should show 1 player, got ${pages.stats}`);
   if (pages.links.join() !== './about,./privacy') errors.push(`[pages] Settings links wrong: ${pages.links}`);
   await p.close();
 }

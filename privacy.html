@@ -17,20 +17,20 @@
 <main>
   <div>
     <h1>Privacy</h1>
-    <p class="lede">The short version: no accounts, no ads, no analytics, no tracking cookies. Most of what Holeshot keeps stays on your device.</p>
+    <p class="lede">The short version: no accounts, no ads, no tracking cookies, and nothing that identifies you. Most of what Holeshot keeps stays on your device.</p>
     <p class="meta">Last updated 18 October 2026</p>
   </div>
 
   <section>
     <h2>On your device</h2>
-    <p>Your progress, stars, coins, shop items, settings, chosen music, the nickname you type for Compete, and your challenge progress are saved in your browser's local storage. They don't leave your device, except for the Compete details described below.</p>
+    <p>Your progress, stars, coins, shop items, settings, chosen music, the nickname you type for Compete, and your challenge progress are saved in your browser's local storage. They don't leave your device, except for the Compete details and the anonymous play counts described below.</p>
     <p>To work offline, the game also keeps a copy of its own files in your browser's cache.</p>
     <p>To remove all of this, clear this site's data in your browser settings, or uninstall the app from your home screen.</p>
   </section>
 
   <section>
     <h2>Compete</h2>
-    <p>Compete is the only part of the game that sends anything to our server, and only when you use it. We store:</p>
+    <p>Compete sends details to our server only when you use it. We store:</p>
     <ul>
       <li>the <b>nickname</b> you type (shown to the people you play against; please don't use your full name);</li>
       <li>a random <b>player ID</b> your device makes up. It isn't linked to your name, phone number, email or any account;</li>
@@ -40,6 +40,16 @@
     <p>This is kept in a database run by Upstash, in London (UK), and served through Vercel. Challenges are deleted automatically a year after they're created, and your win record a year after your last game.</p>
     <h3>Deleting your Compete data</h3>
     <p>In the game, open <b>Settings</b> and tap <b>Delete my Compete data</b>. That removes your scores, accepts and win record from our server and gives your device a new player ID. Challenges you created stay for the people who played them, with your nickname replaced by "Someone".</p>
+  </section>
+
+  <section id="counts">
+    <h2>Anonymous play counts</h2>
+    <p>So we can show how many people play, the game sends our server a short note when it opens, comes back into view or goes into the background. The note says only:</p>
+    <ul>
+      <li>whether this is the first time this device has opened the game, and the first time today, this week and this month;</li>
+      <li>how many shots you've taken and holes you've sunk since the last note.</li>
+    </ul>
+    <p>It contains no player ID, nickname, progress or anything else that could tell your device apart from another. The server doesn't store the notes: it adds them to running totals (for example "1,204 players" or "57 active today"), which anyone can see on the <a href="./about">About page</a>. The totals are kept in the same Upstash database as Compete.</p>
   </section>
 
   <section>

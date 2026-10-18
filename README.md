@@ -7,6 +7,7 @@ A 3D one-shot ball-into-hole game for the browser and phones. Drag back anywhere
 - **Progression**: 1–3 stars per hole, coins on the course, a shop with 12 ball skins and 6 trails, a daily hole with a streak reward, and an endless mode with lives.
 - **Compete**: create a 5-hole challenge, send the invite link, and play your own holes whenever you like; whoever takes the fewest shots wins. The creator sees who has accepted (started playing) and who has finished, the challenge screen refreshes while open, and the Compete tile shows a badge when there's news. No accounts: players type a nickname, and each device keeps an anonymous ID with a record of wins out of games played.
 - **Music**: players pick from the built-in synthesised theme, tracks from Pixabay, a YouTube video or playlist, or Off (play your own). They can switch from Settings or mid-hole from the pause menu. The speaker button mutes all game audio, YouTube included.
+- **Play counts**: the game reports anonymous counts (first time ever, today, this week and this month, plus shots and holes since the last report), with no ID of any kind. The server keeps only running totals, which are public on the About page and at `/api/stats`.
 - **Feel**: slow motion when the ball drops, "Ooh!" near misses, camera shake, particles, synthesised sound and music, vibration, and a bounce preview.
 
 ## Run it
@@ -28,7 +29,8 @@ Run `npm run dev` and open the `Network:` URL it prints on a phone connected to 
 | --- | --- |
 | `node scripts/check-levels.mjs [n]` | Brute-force solver. Checks that all 60 campaign holes, today's daily hole, `n` endless holes and three sample challenges have at least one sinking shot, that boss keys can be reached, and that nothing overlaps the ball start, the hole or a coin. Run it after editing levels. |
 | `node scripts/smoke-test.mjs` | Runs `dist/` in your installed Chrome, headless. It expects Chrome at the default Windows path; elsewhere, set `CHROME_PATH`. Fails on console errors, fires a real shot, tours each mechanic, checks the graphics settings, drives Compete (invite first, play all 5 holes, accept by link, news badge, send a score, win record), checks music (a track streams, YouTube docks and mutes) and checks that the game opens offline, and saves screenshots to `artifact/shots/`. Run `npm run build` first. |
-| `node scripts/test-api.mjs` | Tests the challenge API against the in-memory store: validation, one score per player, ranking, win records and the share page. Run it after changing `api/`. |
+| `node scripts/test-api.mjs` | Tests the challenge and stats APIs against the in-memory store: validation, one score per player, ranking, win records, the share page, and play counts. Run it after changing `api/`. |
+| `node scripts/stats.mjs [days] [site]` | Prints the live play counts: players, active today, this week and this month, holes, shots and challenges, then a row per day (30 days by default). It reads the public `/api/stats`, so it needs no keys. |
 | `node scripts/make-og.mjs` | Redraws `public/og.png`, the link-preview image. |
 | `npm run build:artifact` | Bundles everything into `artifact/holeshot.html`, a single self-contained page used for the shareable claude.ai preview. |
 
@@ -55,6 +57,8 @@ src/
   game.js            game flow, input, scoring, saving
   fatal.js           full-screen message when the game can't run: no WebGL, a crash while starting, graphics lost
   compete.js         challenge API calls, anonymous player ID, local challenge progress, sharing
+  metrics.js         anonymous play-count reports to /api/stats (no ID)
+  periods.js         UTC day, ISO week and month keys, shared with the stats API
   save.js            localStorage progress
   tokens.css         colours, fonts and gutters shared by the game (style.css) and the pages (page.css)
   page.css, about.js styles for about.html and privacy.html; about.js lists credits from tracks.json
@@ -64,7 +68,8 @@ privacy.html         /privacy: what's stored where and for how long, YouTube ter
 api/                 Vercel functions
   challenge.js       create a challenge, post a score, read a scoreboard or a player's win record
   share.js           /c/<id> share page with Open Graph tags, which forwards to the game
-  _lib/              challenge rules and the Redis store (in-memory when there's no database)
+  stats.js           anonymous play counts: devices report, anyone can read the totals
+  _lib/              challenge rules, play-count totals and the Redis store (in-memory when there's no database)
 ```
 
 ## Adding a hole
