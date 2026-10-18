@@ -92,6 +92,16 @@ ok(st.days.length === 3 && st.days[2].day === periods().day && st.days[2].new ==
 ok(st.days[2].holes === 2 && st.days[2].shots === 3 + 10000, 'a first report’s lifetime counts stay out of the daily rows');
 await call('POST', '', { action: 'create', name: 'Kojo', p: 'kkkkkkkkkkkkkkkkkkkk', v: 1, seed: 7, ks });
 ok((await statsCall('GET')).data.challenges === 2, 'new challenges are counted as they are made');
+// retention and installs: returns count only with `day`, by exact age; v:2 clients mark when retention began
+await statsCall('POST', '', { day: true, age: 1, v: 2 });
+await statsCall('POST', '', { day: true, age: 7, install: true, v: 2 });
+await statsCall('POST', '', { day: true, age: 3, v: 2 });
+await statsCall('POST', '', { day: false, age: 1, install: 'yes', v: 2 }); // not today's first report: no return counted
+st = (await statsCall('GET', '?days=1')).data;
+const todayRow = st.days[0];
+ok(todayRow.ret === 3 && todayRow.d1 === 1 && todayRow.d7 === 1 && todayRow.d30 === 0, 'returns are counted by days since a device started');
+ok(st.installs === 1 && todayRow.installs === 1, 'installs are counted all-time and per day');
+ok(st.retentionSince === periods().day, 'retention counting starts with the first updated client');
 ok(periods(Date.UTC(2026, 0, 1)).week === '2026-W01' && periods(Date.UTC(2027, 0, 1)).week === '2026-W53' && periods(Date.UTC(2026, 9, 18)).week === '2026-W42', 'ISO weeks');
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAPI checks pass');

@@ -16,7 +16,9 @@ const defaults = () => ({
   player: { id: '', name: '' }, // anonymous compete identity, per device
   challenges: {},   // challenge id -> { by, at, holes: [shots per finished hole], tries, sent, rewarded }
   stats: { shots: 0, holes: 0, aces: 0 },
-  metrics: { counted: false, day: '', week: '', month: '', sent: { holes: 0, shots: 0 } }, // last anonymous report (metrics.js)
+  // last anonymous report (metrics.js); firstDay is the UTC day this device was first counted, app whether it has
+  // been counted as an install
+  metrics: { counted: false, firstDay: '', day: '', week: '', month: '', sent: { holes: 0, shots: 0 }, app: false },
 });
 
 function merge(a, b) {

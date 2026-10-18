@@ -1,7 +1,8 @@
 // Anonymous play counts.
-//   GET  /api/stats            public totals: players, active today / this week / this month, holes, shots, challenges
-//   GET  /api/stats?days=30    the same plus a row per day
-//   POST /api/stats {first, day, week, month, holes, shots}   one device's report (no ID)
+//   GET  /api/stats            public totals: players, installs, active today / this week / this month, holes, shots,
+//                              challenges
+//   GET  /api/stats?days=30    the same plus a row per day, with returning players for retention
+//   POST /api/stats {first, day, week, month, age, install, holes, shots, v}   one device's report (no ID)
 import { openStore } from './_lib/store.js';
 import { record, read } from './_lib/stats.js';
 

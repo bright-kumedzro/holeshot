@@ -20,15 +20,24 @@ async function bump(db, key, fields, ttl = TTL) {
 
 async function start(db) { await db.hsetnx(ALL, 'since', Date.now()); }
 
-// One device's report: { first, day, week, month } are true the first time in that period, holes and shots are counts.
+// Retention: a device back on a later day says how many days since it was first counted. Each day keeps how many
+// returned at all (ret) and exactly 1, 7 and 30 days after their first day (d1, d7, d30); divided by the `new` count
+// of the day they started, that's day-1/7/30 retention.
+const returns = age => ({ ret: age >= 1 ? 1 : 0, d1: age === 1 ? 1 : 0, d7: age === 7 ? 1 : 0, d30: age === 30 ? 1 : 0 });
+
+// One device's report: { first, day, week, month } are true the first time in that period, holes and shots are counts,
+// age is days since its first day (with `day`), install is true the first time it runs as an installed app.
 export async function record(db, body) {
   const b = body && typeof body === 'object' ? body : {};
   const first = b.first === true ? 1 : 0, holes = clamp(b.holes, MAX_HOLES), shots = clamp(b.shots, MAX_SHOTS);
+  const day = b.day === true ? 1 : 0, install = b.install === true ? 1 : 0;
   const p = periods(), today = first ? {} : { holes, shots }; // a first report's counts are history, not today's play
   await start(db);
+  // retention counts only from cohorts that began after clients that remember their first day were out
+  if (b.v === 2) await db.hsetnx(ALL, 'retSince', p.day);
   await Promise.all([
-    bump(db, ALL, { players: first, holes, shots }, 0),
-    bump(db, `st:d:${p.day}`, { active: b.day === true ? 1 : 0, new: first, ...today }),
+    bump(db, ALL, { players: first, holes, shots, installs: install }, 0),
+    bump(db, `st:d:${p.day}`, { active: day, new: first, installs: install, ...today, ...(day ? returns(clamp(b.age, 3650)) : {}) }),
     bump(db, `st:w:${p.week}`, { active: b.week === true ? 1 : 0 }),
     bump(db, `st:m:${p.month}`, { active: b.month === true ? 1 : 0 }),
   ]);
@@ -70,19 +79,17 @@ export async function read(db, days = 0) {
   const p = periods();
   const [all, d, w, m] = await Promise.all([ALL, `st:d:${p.day}`, `st:w:${p.week}`, `st:m:${p.month}`].map(k => db.hgetall(k)));
   const out = {
-    since: all?.since ? new Date(n(all.since)).toISOString().slice(0, 10) : null,
-    players: n(all?.players), holes: n(all?.holes), shots: n(all?.shots),
+    since: all?.since ? new Date(n(all.since)).toISOString().slice(0, 10) : null, retentionSince: all?.retSince || null,
+    players: n(all?.players), installs: n(all?.installs), holes: n(all?.holes), shots: n(all?.shots),
     challenges: n(all?.challenges), finishes: n(all?.finishes),
     activeToday: n(d?.active), activeWeek: n(w?.active), activeMonth: n(m?.active),
   };
-  const span = Math.min(Math.max(0, Math.floor(n(days))), 90);
+  const span = Math.min(Math.max(0, Math.floor(n(days))), 120);
   if (span) {
     const keys = Array.from({ length: span }, (_, i) => periods(Date.now() - (span - 1 - i) * 864e5).day);
     const rows = await Promise.all(keys.map(k => db.hgetall(`st:d:${k}`)));
-    out.days = keys.map((day, i) => ({
-      day, active: n(rows[i]?.active), new: n(rows[i]?.new), holes: n(rows[i]?.holes), shots: n(rows[i]?.shots),
-      challenges: n(rows[i]?.challenges), finishes: n(rows[i]?.finishes),
-    }));
+    const fields = ['active', 'new', 'ret', 'd1', 'd7', 'd30', 'installs', 'holes', 'shots', 'challenges', 'finishes'];
+    out.days = keys.map((day, i) => ({ day, ...Object.fromEntries(fields.map(f => [f, n(rows[i]?.[f])])) }));
   }
   return out;
 }

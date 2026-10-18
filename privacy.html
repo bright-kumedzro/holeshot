@@ -47,6 +47,8 @@
     <p>So we can show how many people play, the game sends our server a short note when it opens, comes back into view or goes into the background. The note says only:</p>
     <ul>
       <li>whether this is the first time this device has opened the game, and the first time today, this week and this month;</li>
+      <li>when you come back on a later day, how many days it has been since this device first opened the game (so we can see whether people come back);</li>
+      <li>whether the game is running as an app installed on your home screen, the first time it does;</li>
       <li>how many shots you've taken and holes you've sunk since the last note.</li>
     </ul>
     <p>It contains no player ID, nickname, progress or anything else that could tell your device apart from another. The server doesn't store the notes: it adds them to running totals (for example "1,204 players" or "57 active today"), which anyone can see on the <a href="./about">About page</a>. The totals are kept in the same Upstash database as Compete.</p>
