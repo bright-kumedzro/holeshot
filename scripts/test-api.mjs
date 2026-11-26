@@ -57,8 +57,8 @@ ok(r.data.playing.length === 0 && r.data.players.length === 4, 'finishing moves 
 ok((await call('GET', '?id=nope99&p=' + A)).status === 404, 'unknown challenge is a 404');
 ok((await call('POST', '', { action: 'zap' })).status === 400, 'unknown action is a 400');
 
-const html = await (await share(new Request(`https://playholeshot.vercel.app/api/share?id=${id}`))).text();
-ok(html.includes('Ama b challenged you on Holeshot') && html.includes('Kofi leads with 8 shots') && html.includes('https://playholeshot.vercel.app/og.png'), 'share page has challenge Open Graph tags');
+const html = await (await share(new Request(`https://holeshot.brightkumedzro.com/api/share?id=${id}`))).text();
+ok(html.includes('Ama b challenged you on Holeshot') && html.includes('Kofi leads with 8 shots') && html.includes('https://holeshot.brightkumedzro.com/og.png'), 'share page has challenge Open Graph tags');
 ok(html.includes(`/?challenge=${id}`), 'share page sends people on to the challenge');
 const generic = await (await share(new Request('https://x/api/share?id=%3Cscript%3E'))).text();
 ok(generic.includes('<title>Holeshot</title>') && !generic.includes('<script>alert'), 'bad ids get the generic preview');

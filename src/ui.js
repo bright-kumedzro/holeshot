@@ -78,7 +78,7 @@ export function initUI(handlers) {
   $('btnForget').hidden = !H.competeAvailable;
   twoTap($('btnForget'), 'Delete my Compete data', 'Tap again to delete it from our server', () => H.forgetMe());
   // the single-file build has no pages of its own, so it links to the live site
-  if (!H.competeAvailable) for (const id of ['lnkAbout', 'lnkPrivacy']) $(id).href = `https://playholeshot.vercel.app/${id === 'lnkAbout' ? 'about' : 'privacy'}`;
+  if (!H.competeAvailable) for (const id of ['lnkAbout', 'lnkPrivacy']) $(id).href = `https://holeshot.brightkumedzro.com/${id === 'lnkAbout' ? 'about' : 'privacy'}`;
   document.addEventListener('click', e => { if (e.target.closest('button')) H.click(); }, true);
 }
 

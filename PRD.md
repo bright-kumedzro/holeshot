@@ -4,7 +4,7 @@ Last updated 18 October 2026 · Owner: Bright
 
 ## 1. Overview
 
-Holeshot is a free, account-free 3D browser game where the player gets the ball in the cup with one drag-and-release shot per attempt. It runs on phones and desktops as an installable, offline-capable PWA, and is live at [playholeshot.vercel.app](https://playholeshot.vercel.app).
+Holeshot is a free, account-free 3D browser game where the player gets the ball in the cup with one drag-and-release shot per attempt. It runs on phones and desktops as an installable, offline-capable PWA, and is live at [holeshot.brightkumedzro.com](https://holeshot.brightkumedzro.com).
 
 **Pitch.** Drag back anywhere, aim, release. Each hole is a small, hand-tuned or generated physics puzzle — spinners, bumpers, portals, ice, lava — that takes seconds to try and a few attempts to master. Five themed worlds, 60 holes, a daily hole, endless mode, and Compete: asynchronous 5-hole challenges you send to friends as a link.
 
@@ -684,7 +684,7 @@ Short, friendly, second person; no jargon. Examples in use: “Drag back anywher
 
 ## 10. Environments, deployment and operations
 
-Git is the release mechanism: pushes to the `testing` branch make a preview deploy, merging into `main` ships production to [playholeshot.vercel.app](https://playholeshot.vercel.app). There are no servers to manage.
+Git is the release mechanism: pushes to the `testing` branch make a preview deploy, merging into `main` ships production to [holeshot.brightkumedzro.com](https://holeshot.brightkumedzro.com). There are no servers to manage.
 
 ### 10.1 Environments
 
@@ -693,7 +693,7 @@ Git is the release mechanism: pushes to the `testing` branch make a preview depl
 | Local dev | `npm run dev` (Vite on :5173, `--host` for phones on the same Wi-Fi) | In-memory store via `scripts/api-dev.mjs` middleware | Service worker and analytics off; `/about`, `/privacy` and `/c/:id` rewritten like Vercel |
 | Local preview | `npm run build && npm run preview` | None (API not served) | Tests the PWA and offline cache |
 | Preview (Vercel) | Push to `testing` | Same Upstash DB as production | Behind Vercel Deployment Protection; test plays land in live totals (accepted trade-off on the free tier) |
-| Production (Vercel) | Merge to `main` | Upstash Redis, London (eu-west-2), free tier | Functions pinned to `lhr1`; domain `playholeshot.vercel.app` |
+| Production (Vercel) | Merge to `main` | Upstash Redis, London (eu-west-2), free tier | Functions pinned to `lhr1`; domain `holeshot.brightkumedzro.com` |
 | Single-file artifact | `npm run build:artifact` → `artifact/holeshot.html` | None | Compete, YouTube, analytics and service worker compiled out |
 
 ### 10.2 Configuration

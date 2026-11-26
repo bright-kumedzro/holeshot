@@ -1,7 +1,7 @@
 // Prints Holeshot's anonymous play counts from the live site: totals, retention, then a row per day.
-// Usage: node scripts/stats.mjs [days=30] [site=https://playholeshot.vercel.app]
+// Usage: node scripts/stats.mjs [days=30] [site=https://holeshot.brightkumedzro.com]
 const days = Math.min(Number(process.argv[2]) || 30, 90);
-const site = (process.argv[3] || 'https://playholeshot.vercel.app').replace(/\/$/, '');
+const site = (process.argv[3] || 'https://holeshot.brightkumedzro.com').replace(/\/$/, '');
 
 // 30 extra days, so day-30 retention has its starting days
 const res = await fetch(`${site}/api/stats?days=${days + 30}`);

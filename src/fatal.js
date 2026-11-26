@@ -9,7 +9,7 @@ const MESSAGES = {
 export function showFatal(kind) {
   if (document.getElementById('fatal')) return;
   const [title, text] = MESSAGES[kind] || MESSAGES.crash;
-  const about = __COMPETE__ ? './about' : 'https://playholeshot.vercel.app/about';
+  const about = __COMPETE__ ? './about' : 'https://holeshot.brightkumedzro.com/about';
   const el = document.createElement('section');
   el.id = 'fatal'; el.className = 'fatal'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-labelledby', 'fatalTitle');
   el.innerHTML = `<div class="fatal-card"><div class="fatal-logo" aria-hidden="true">Holeshot</div><h2 id="fatalTitle">${title}</h2><p>${text}</p>`
